@@ -1,0 +1,13 @@
+Datensatz-Zusammenfassung
+=========================
+
+rows: 305
+scans: 19
+unique_bssids: 197
+unique_ssids: 17
+time_start: 2026-03-25 13:38:22
+time_end: 2026-03-25 13:40:46
+rssi_range: -90 bis -55 dBm
+latitude_range: 48.878458 bis 48.878574
+longitude_range: 8.715899 bis 8.717683
+bbox_meters: 12.9 m x 130.6 m

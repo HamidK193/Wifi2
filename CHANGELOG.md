@@ -4,14 +4,15 @@ Alle wichtigen Aenderungen am Projekt werden hier kurz protokolliert.
 
 ## 2026-03-31
 
-- Grundlegende Projektstruktur mit `data/`, `docs/`, `notebooks/`, `src/`
-  und `tests/` vorbereitet.
-- `README.md` auf das Projektthema WiFi-basierte Outdoor-Lokalisierung
-  aktualisiert.
-- `main.py` als einfacher Einstiegspunkt angelegt.
-- `src/io/load_wifi_csv.py` fuer den ersten CSV-Import erstellt.
-- `src/preprocessing/clean_wifi_data.py` als einfache Vorbereitung fuer die
-  Datenbereinigung erstellt.
-- `src/visualization/plot_wifi_data.py` als Platzhalter fuer spaetere
-  Visualisierung vorbereitet.
-- `AGENTS.md`, `memory.md` und `CHANGELOG.md` hinzugefuegt.
+- Projektstruktur fuer den Visualisierungs-MVP vereinfacht.
+- CSV `T1_zu_W1.csv` nach `data/raw/` uebernommen.
+- Neue flache Module fuer Laden, Vorverarbeitung und Visualisierung angelegt.
+- `main.py` in eine kleine End-to-End-Pipeline umgebaut.
+- README auf den echten Datensatz und die aktuelle Nutzung aktualisiert.
+- AGENTS mit verbindlichem Visualisierungs-Plan aktualisiert.
+- memory.md auf den aktuellen CSV-Stand und die naechsten Schritte angepasst.
+- Bereinigte CSV-Datei, Scan-Zusammenfassung und Visualisierungen erzeugt.
+- `map.osm` nach `data/raw/` uebernommen und OSM-Overlay-Karten eingebaut.
+- OSM-Karten enger gezoomt und fuer die Messroute optisch verbessert.
+- `task1.py` in vier unterschiedliche Team-Versionen aufgeteilt.
+- `task2_vending_machine.py` in vier unterschiedliche Team-Versionen aufgeteilt.

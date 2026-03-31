@@ -1,5 +1,5 @@
 def vending_machine():
-    """Simuliert einen einfachen Getränkeautomaten."""
+    """Simuliert einen einfachen Getraenkeautomaten."""
 
     drinks = {
         "1": "Wasser",
@@ -9,8 +9,8 @@ def vending_machine():
 
     drink_price_in_cents = 100
 
-    print("Willkommen beim Getränkeautomaten.")
-    print("Bitte wähle ein Getränk:")
+    print("Willkommen beim Getraenkeautomaten.")
+    print("Bitte waehle ein Getraenk:")
     print("1 - Wasser")
     print("2 - Cola")
     print("3 - Saft")
@@ -18,12 +18,12 @@ def vending_machine():
     choice = input("Deine Auswahl: ")
 
     if choice not in drinks:
-        print("Ungültige Auswahl.")
+        print("Ungueltige Auswahl.")
         return
 
     selected_drink = drinks[choice]
-    print(f"Du hast {selected_drink} gewählt.")
-    print(f"Der Preis beträgt {drink_price_in_cents} Cent.")
+    print(f"Du hast {selected_drink} gewaehlt.")
+    print(f"Der Preis betraegt {drink_price_in_cents} Cent.")
 
     inserted_amount_in_cents = 0
 
@@ -31,7 +31,7 @@ def vending_machine():
         coin = input("Bitte 50 oder 100 Cent einwerfen: ")
 
         if coin not in ["50", "100"]:
-            print("Ungültige Münze. Erlaubt sind nur 50 oder 100 Cent.")
+            print("Ungueltige Muenze. Erlaubt sind nur 50 oder 100 Cent.")
             continue
 
         inserted_amount_in_cents += int(coin)
@@ -41,9 +41,9 @@ def vending_machine():
 
     if inserted_amount_in_cents > drink_price_in_cents:
         change = inserted_amount_in_cents - drink_price_in_cents
-        print(f"Rückgeld: {change} Cent")
+        print(f"Rueckgeld: {change} Cent")
 
-    print("Vielen Dank für deinen Einkauf.")
+    print("Vielen Dank fuer deinen Einkauf.")
 
 
 vending_machine()

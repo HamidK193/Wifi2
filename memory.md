@@ -10,24 +10,39 @@
 
 ### Aktueller Stand
 
-- Repository ist lokal eingerichtet und mit GitHub verbunden.
-- Eine einfache Projektstruktur mit `data/`, `src/`, `docs/`, `notebooks/`
-  und `tests/` wurde vorbereitet.
-- Ein erster CSV-Loader liegt in `src/io/load_wifi_csv.py`.
-- Eine einfache Vorverarbeitungsstruktur liegt in
-  `src/preprocessing/clean_wifi_data.py`.
-- `main.py` prueft bereits, ob eine CSV-Datei in `data/raw/` vorhanden ist.
-- Eine echte WiFi-CSV-Datei ist aktuell noch nicht im Repository sichtbar.
+- Die Datei `T1_zu_W1.csv` liegt in `data/raw/`.
+- Die Datei `map.osm` liegt in `data/raw/`.
+- Es handelt sich um einen Wigle-WiFi-Export mit einer zusaetzlichen ersten
+  Metazeile.
+- Der aktuelle MVP konzentriert sich auf Einlesen, Bereinigung, Scan-Zusammen-
+  fassung, Visualisierung und OSM-Ueberlagerung.
+- Die aktive Pipeline laeuft ueber `main.py`.
+- Die aktiven Module liegen direkt in `src/`.
+- In `data/processed/` wurden bereits bereinigte Daten, eine Scan-Zusammen-
+  fassung und drei PNG-Visualisierungen erzeugt.
+- Zusaetzlich wurden zwei OSM-basierte Karten mit Scan-Punkten erzeugt.
+- Fuer Task 1 und Task 2 existieren jeweils vier kleine unterschiedliche
+  Loesungsdateien fuer die Teammitglieder.
 
-### Wichtige Regeln
+### Bekannte Fakten zur CSV
 
-- Rohdaten bleiben unveraendert in `data/raw/`.
-- Verarbeitete Dateien kommen nach `data/processed/`.
-- Erst MVP, spaeter Erweiterungen.
+- 305 Datenzeilen
+- 19 Zeitstempel
+- 19 Messpunkte
+- relevante Felder: MAC, SSID, FirstSeen, RSSI, Channel, Frequency,
+  CurrentLatitude, CurrentLongitude, AccuracyMeters
 
-### Naechste sinnvolle Schritte
+### Aktuelle Ziele
 
-- WiFi-CSV-Datei in `data/raw/` ablegen.
-- Spaltennamen analysieren.
-- Pruefen, ob die erste Zeile ein App-spezifischer Zusatzheader ist.
-- Relevante Spalten fuer Lokalisierung identifizieren.
+- CSV robust einlesen
+- Daten bereinigen und vereinheitlichen
+- Visualisierungen erzeugen
+- OSM-Karte und Scan-Daten deckungsgleich darstellen
+- Projekt klein und kursgerecht halten
+- Dokumentation und Git-Stand sauber halten
+
+### Spaetere Erweiterungen
+
+- mehrere CSV-Dateien zusammenfuehren
+- einfache Lokalisierungs-Baseline pruefen
+- Smartphone-App optional spaeter ergaenzen
