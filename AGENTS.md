@@ -10,10 +10,13 @@ fuer dieses Repository.
 - Halte den Code einfach, lesbar und gut erweiterbar.
 - Bevorzuge kleine Funktionen statt komplexer Klassenstrukturen.
 - Veraendere Rohdaten in `data/raw/` niemals direkt.
-- Speichere verarbeitete Daten und Visualisierungen in `data/processed/`.
+- Speichere verarbeitete Daten in `data/processed/`.
 - Pflege `README.md`, `memory.md` und `CHANGELOG.md` nach groesseren Schritten.
 - Vermeide Overengineering. Das Projekt ist ein kleiner Kurs-MVP.
 - Nutze Python 3.
+- Modelliere Netzwerke ueber die Kombination `SSID + BSSID`.
+- Behandle Routerstandorte nie als sicher bekannte Punkte, solange nur
+  Messkreise vorliegen.
 
 ## Verbindlicher Projektplan
 
@@ -21,16 +24,26 @@ fuer dieses Repository.
 
 - CSV-Datei aus `data/raw/` einlesen
 - Wigle-Metazeile korrekt behandeln
+- beim aktuellen Standarddatensatz nur `WIFI`-Eintraege weiterverarbeiten
+- ungueltige Zeitstempel wie `1970-01-01` verwerfen
 - relevante Spalten bereinigen und vereinheitlichen
+- `SSID + BSSID` als Netzwerkeinheit modellieren
 - Messpunkte und Scans zusammenfassen
-- Visualisierungen speichern
-- OSM-Export aus `data/raw/map.osm` einlesen und Scan-Punkte darueberlegen
+- Radiusbereiche aus RSSI abschaetzen
+- OSM-Export aus `data/raw/map.osm` einlesen
+- interaktive Browser-Karte statt statischer PNG-Visualisierung bereitstellen
+- Kreis-Ueberlagerung fuer spaetere Router- oder Standortabschaetzung
+  vorbereiten
+- automatisierte Tests und GitHub Actions pflegen
 
 ### Relevante Quelldateien
 
 - `main.py`
+- `app.py`
 - `src/load_wifi_csv.py`
+- `src/localization_logic.py`
 - `src/preprocess_wifi_data.py`
+- `src/project_pipeline.py`
 - `src/visualize_wifi_data.py`
 
 ### Aktuelle Arbeitsschritte
@@ -38,11 +51,12 @@ fuer dieses Repository.
 1. Datensatz in `data/raw/` ablegen
 2. CSV inspizieren und echte Spalten erkennen
 3. Daten auf ein internes Schema abbilden
-4. Bereinigte Daten in `data/processed/` speichern
+4. `SSID + BSSID` als Netzwerkeinheit modellieren
 5. Scan-Zusammenfassung erzeugen
-6. Visualisierungen erzeugen
-7. OSM-Karten mit Scan-Punkten erzeugen
-8. Dokumentation aktualisieren
+6. Netzwerk-Beobachtungen und Radius-Schaetzungen erzeugen
+7. Kreis-Ueberlagerung desselben Netzwerks vorbereiten
+8. Interaktive OSM-Karte im Browser bereitstellen
+9. Dokumentation aktualisieren
 
 ### Spaetere Erweiterungen
 

@@ -1,13 +1,14 @@
 Datensatz-Zusammenfassung
 =========================
 
-rows: 305
-scans: 19
-unique_bssids: 197
-unique_ssids: 17
-time_start: 2026-03-25 13:38:22
-time_end: 2026-03-25 13:40:46
-rssi_range: -90 bis -55 dBm
-latitude_range: 48.878458 bis 48.878574
-longitude_range: 8.715899 bis 8.717683
-bbox_meters: 12.9 m x 130.6 m
+rows: 4509
+scans: 628
+unique_network_entities: 2100
+unique_bssids: 2100
+unique_ssids: 1124
+time_start: 2026-04-08 11:32:48
+time_end: 2026-04-08 14:13:01
+rssi_range: -97 bis -18 dBm
+latitude_range: 48.878451 bis 48.891593
+longitude_range: 8.694906 bis 8.717896
+bbox_meters: 1463.0 m x 1682.9 m

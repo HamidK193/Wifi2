@@ -3,6 +3,9 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.localization_logic import build_network_id
+
+MIN_VALID_TIMESTAMP = pd.Timestamp("2020-01-01")
 COLUMN_MAPPING = {
     "MAC": "bssid",
     "SSID": "ssid",
@@ -17,6 +20,7 @@ COLUMN_MAPPING = {
 
 OUTPUT_COLUMNS = [
     "scan_id",
+    "network_id",
     "timestamp",
     "bssid",
     "ssid",
@@ -35,9 +39,14 @@ def clean_wifi_data(dataframe: pd.DataFrame) -> pd.DataFrame:
         missing_text = ", ".join(missing_columns)
         raise ValueError(f"Fehlende Pflichtspalten: {missing_text}")
 
-    cleaned = dataframe.loc[:, COLUMN_MAPPING.keys()].rename(columns=COLUMN_MAPPING).copy()
+    filtered = dataframe.copy()
+    if "Type" in filtered.columns:
+        filtered = filtered.loc[filtered["Type"] == "WIFI"].copy()
+
+    cleaned = filtered.loc[:, COLUMN_MAPPING.keys()].rename(columns=COLUMN_MAPPING).copy()
 
     cleaned["timestamp"] = pd.to_datetime(cleaned["timestamp"], errors="coerce")
+    cleaned = cleaned.loc[cleaned["timestamp"] >= MIN_VALID_TIMESTAMP].copy()
 
     for column_name in ["channel", "frequency", "rssi", "latitude", "longitude", "accuracy_m"]:
         cleaned[column_name] = pd.to_numeric(cleaned[column_name], errors="coerce")
@@ -55,6 +64,10 @@ def clean_wifi_data(dataframe: pd.DataFrame) -> pd.DataFrame:
         for index, timestamp in enumerate(cleaned["timestamp"].drop_duplicates(), start=1)
     }
     cleaned["scan_id"] = cleaned["timestamp"].map(timestamp_index).map(lambda index: f"scan_{index:02d}")
+    cleaned["network_id"] = cleaned.apply(
+        lambda row: build_network_id(row["ssid"], row["bssid"]),
+        axis=1,
+    )
 
     return cleaned.loc[:, OUTPUT_COLUMNS]
 
@@ -92,6 +105,7 @@ def summarize_dataset(
     return {
         "rows": int(len(cleaned_dataframe)),
         "scans": int(scan_summary["scan_id"].nunique()),
+        "unique_network_entities": int(cleaned_dataframe["network_id"].nunique()),
         "unique_bssids": int(cleaned_dataframe["bssid"].nunique()),
         "unique_ssids": int(cleaned_dataframe["ssid"].nunique()),
         "time_start": str(cleaned_dataframe["timestamp"].min()),
