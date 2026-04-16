@@ -1,0 +1,224 @@
+Professor-Erklaerung zum Projekt
+================================
+
+1. Projektziel
+--------------
+
+Das Projekt untersucht, ob man sich outdoor grob mit WLAN-Signalen lokalisieren
+kann.
+
+Wir nehmen mit WiGLE WLAN-Scans auf. Jeder Scan enthaelt:
+
+- GPS-Position des Handys
+- SSID, also Netzwerkname
+- BSSID/MAC-Adresse des Access Points
+- RSSI, also Signalstaerke in dBm
+
+Aus diesen Daten bauen wir eine Referenzdatenbank. Spaeter kann ein neuer WLAN-
+Scan mit dieser Datenbank verglichen werden, um eine ungefaehre Position auf der
+Karte zu schaetzen.
+
+
+2. Warum SSID + BSSID?
+----------------------
+
+Eine SSID allein reicht nicht, weil z. B. "PF-NET" an vielen Access Points
+auftauchen kann.
+
+Eine BSSID/MAC-Adresse allein ist auch nicht ideal, weil wir fachlich immer
+wissen wollen, zu welchem Netzwerknamen diese Beobachtung gehoert.
+
+Darum nutzen wir als eindeutige Netzwerkeinheit:
+
+SSID + BSSID
+
+Im Code heisst das `network_id`.
+
+Beispiel:
+
+PF-NET | 1c:d1:e0:1a:4b:ef
+
+
+3. CSV-Verarbeitung
+-------------------
+
+Die WiGLE-Datei enthaelt am Anfang eine Metazeile. Diese wird automatisch
+erkannt und uebersprungen.
+
+Danach werden nur die fuer uns wichtigen Felder genutzt:
+
+- MAC -> bssid
+- SSID -> ssid
+- FirstSeen -> timestamp
+- RSSI -> rssi
+- CurrentLatitude -> latitude
+- CurrentLongitude -> longitude
+- AccuracyMeters -> accuracy_m
+- Channel / Frequency
+
+Zusaetzlich filtern wir:
+
+- nur Type = WIFI
+- keine ungueltigen 1970-Zeitstempel
+- keine Zeilen ohne SSID, BSSID, RSSI oder GPS
+
+
+4. Triangulation / Standortlogik
+--------------------------------
+
+Der Begriff "Triangulation" ist bei RSSI-Daten nur eingeschraenkt korrekt.
+RSSI ist keine exakte Distanzmessung. Menschen, Waende, Autos oder andere
+Stoerungen koennen die Signalstaerke stark veraendern.
+
+Darum machen wir aktuell zwei Dinge:
+
+1. Radius-/Kreislogik zur Erklaerung
+   Aus RSSI wird grob ein moeglicher Radius geschaetzt. Dieser Kreis zeigt:
+   Der Router koennte irgendwo in diesem Bereich liegen. Das ist kein exakter
+   Routerstandort.
+
+2. Fingerprinting fuer die eigene Position
+   Fuer die Standortbestimmung vergleichen wir einen neuen WLAN-Fingerprint mit
+   bekannten Referenz-Scans.
+
+Ein WLAN-Fingerprint ist eine Liste aus:
+
+SSID, BSSID, RSSI
+
+Beispiel:
+
+PF-NET,1c:d1:e0:1a:4b:ef,-85
+PF-NET-GAST,1c:d1:e0:1a:4b:ec,-86
+
+
+5. Fingerprint-Vergleich
+------------------------
+
+Die Funktion `estimate_position_from_fingerprint()` macht den Kern der
+Standortschaetzung.
+
+Ablauf:
+
+1. Aktuelle Eingabe in `network_id + RSSI` umwandeln.
+2. Alle bekannten Referenz-Scans aus der Datenbank holen.
+3. Pruefen, welche `network_id`s gemeinsam vorkommen.
+4. Pro Referenz-Scan die RSSI-Abweichung berechnen.
+5. Die aehnlichsten Scans auswaehlen.
+6. Aus diesen Scans eine gewichtete Position berechnen.
+
+Je kleiner die RSSI-Abweichung, desto hoeher das Gewicht.
+
+Das Verfahren ist einfacher als Machine Learning, aber fuer das Projekt gut
+erklaerbar und testbar.
+
+
+6. Warum keine reine Kreis-Schnittpunkt-Methode?
+------------------------------------------------
+
+Eine reine geometrische Schnittpunkt-Methode waere nur sinnvoll, wenn die
+Abstaende zu Access Points halbwegs genau bekannt waeren.
+
+Bei RSSI ist das aber nicht der Fall:
+
+- ein schwaches Signal kann weit weg bedeuten
+- oder nur eine Wand / Stoerung dazwischen
+- ein starkes Signal kann nahe sein
+- oder von einem leistungsstaerkeren Access Point kommen
+
+Deshalb ist Fingerprinting fuer unser Ziel besser:
+
+Wir fragen nicht: "Wo ist genau der Router?"
+Sondern: "Welcher bekannte Messpunkt hatte ein aehnliches WLAN-Bild?"
+
+
+7. Streamlit-App
+----------------
+
+Die App wird gestartet mit:
+
+python -m streamlit run app.py
+
+Sie zeigt:
+
+- OSM-Karte
+- Messpunkte
+- Radiuskreise fuer ausgewaehlte WLAN-Netzwerke
+- Standort-Test
+
+Beim Standort-Test gibt es zwei Modi:
+
+1. Vorhandenen Scan testen
+   Ein bekannter Scan wird so behandelt, als waere er neu. Die App schaetzt die
+   Position und vergleicht sie mit der echten GPS-Position.
+
+2. Manuelle Eingabe
+   Man gibt Zeilen im Format `SSID,BSSID,RSSI` ein. Wenn diese Kombinationen in
+   der Referenzdatenbank vorkommen, schaetzt die App daraus eine Position.
+
+
+8. Wichtige Grenzen
+-------------------
+
+Die Genauigkeit ist aktuell begrenzt durch:
+
+- GPS-Genauigkeit der Trainingsdaten
+- schwankende RSSI-Werte
+- unterschiedliche Access-Point-Dichte
+- zu wenige Wiederholungsmessungen an manchen Stellen
+- fehlende echte Live-WLAN-API im Browser
+
+Der aktuelle Stand ist daher eine verstaendliche Grundlage fuer:
+
+- Daten einlesen
+- Daten bereinigen
+- WLAN-Fingerprints vergleichen
+- Position auf Karte schaetzen
+- spaeter echte Live-Scans oder Smartphone-App anschliessen
+
+
+9. Wichtige Dateien
+-------------------
+
+- `main.py`
+  Fuehrt die Datenpipeline aus.
+
+- `app.py`
+  Startet die Browser-App.
+
+- `src/preprocess_wifi_data.py`
+  Bereinigt die WiGLE-Daten.
+
+- `src/localization_logic.py`
+  Enthaelt Radius- und Netzwerklogik.
+
+- `src/fingerprint_localization.py`
+  Enthaelt die einfache Standort-Schaetzung ueber WLAN-Fingerprints.
+
+- `src/visualize_wifi_data.py`
+  Baut die Karte und zeichnet Marker, Messpunkte und Radiuskreise.
+
+- `tests/`
+  Enthaelt automatische Tests fuer die wichtigsten Funktionen.
+
+
+10. Typische Prof-Fragen
+------------------------
+
+Warum nutzt ihr SSID + BSSID?
+Weil eine SSID mehrfach vorkommen kann. Die Kombination beschreibt einen
+konkreteren Access Point im Kontext seines Netzwerknamens.
+
+Ist das echte Triangulation?
+Nicht exakt. RSSI liefert keine sichere Distanz. Wir nutzen Radiuskreise zur
+Erklaerung und Fingerprinting zur eigentlichen Positionsschaetzung.
+
+Wie wird die Position geschaetzt?
+Ein neuer WLAN-Fingerprint wird mit bekannten Referenz-Scans verglichen. Die
+aehnlichsten Scans bestimmen die geschaetzte Position.
+
+Warum braucht ihr Referenzdaten?
+Weil das System wissen muss, wie WLAN-Signale an bekannten Orten aussehen.
+
+Was ist der naechste sinnvolle Schritt?
+Mehr gezielte Messlaeufe in einem kleineren Gebiet aufnehmen und die
+Positionsfehler systematisch auswerten.

@@ -18,6 +18,9 @@ Alle wichtigen Aenderungen am Projekt werden hier kurz protokolliert.
 - erste `pytest`-Tests fuer CSV-Import, Bereinigung, Netzwerklogik, Pipeline und App-Import angelegt.
 - GitHub-Action-Workflow in `.github/workflows/ci.yml` fuer automatische Tests bei `push` und `pull_request` hinzugefuegt.
 - neuen OSM-Export `map_innenstadt.osm` als fokussierte Standardkarte fuer die App uebernommen.
+- App-Defaultansicht performant gemacht: `Alle / Alle` zeigt nur Messpunkte, Radius- und Overlap-Berechnung startet erst bei konkreter Auswahl.
+- erste Fingerprint-basierte Standortschätzung ergaenzt: Testscan oder manuelle `SSID,BSSID,RSSI`-Eingabe kann gegen Referenz-Scans gematcht werden.
+- Erklaerdatei `docs/professor_erklaerung.txt` mit den wichtigsten Punkten zu Daten, Code, Triangulation und Fingerprinting erstellt.
 
 ## 2026-03-31
 

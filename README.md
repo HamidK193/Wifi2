@@ -31,6 +31,10 @@ Wichtige fachliche Idee:
   - Scan-Zusammenfassung erzeugen
   - Netzwerk-Beobachtungen und Radius-Schaetzungen erzeugen
 - `app.py` startet die interaktive Browser-Anwendung.
+- Die App enthaelt einen ersten Standort-Test:
+  - vorhandenen Scan als Testeingabe auswaehlen
+  - oder manuell `SSID,BSSID,RSSI` eingeben
+  - Position per WLAN-Fingerprint-Vergleich schaetzen
 - `pytest` und GitHub Actions pruefen die wichtigsten Kernfunktionen automatisch.
 - Fuer Task 1 und Task 2 liegen jeweils vier unterschiedliche kleine
   Loesungsdateien im Projekt.
@@ -55,8 +59,11 @@ Wichtige fachliche Idee:
 |  |  |- map_innenstadt.osm
 |  |- processed/
 |- notebooks/
+|- docs/
+|  |- professor_erklaerung.txt
 |- src/
 |  |- __init__.py
+|  |- fingerprint_localization.py
 |  |- load_wifi_csv.py
 |  |- localization_logic.py
 |  |- preprocess_wifi_data.py
@@ -122,6 +129,7 @@ Die Browser-Anwendung zeigt:
 - Messpunkte der Scans
 - fuer ein ausgewaehltes Netzwerk die moeglichen Radiuskreise
 - Ueberlappungspunkte mehrerer Kreise desselben Netzwerks
+- einen ersten Standort-Testrun ueber WLAN-Fingerprints
 
 Wichtig:
 
@@ -130,6 +138,26 @@ Wichtig:
   Beobachtung.
 - Erst die Ueberlagerung mehrerer Kreise bereitet eine spaetere
   Router- oder Standortabschaetzung vor.
+- Die aktuelle Standortschätzung nutzt einen einfachen gewichteten Vergleich
+  gegen bekannte Referenz-Scans. Das ist fuer RSSI-Daten robuster als reine
+  geometrische Triangulation.
+
+## Standort-Test in der App
+
+In der linken Seitenleiste gibt es den Bereich `Standort-Test`.
+
+Moeglichkeiten:
+
+- `Vorhandenen Scan testen`: Ein bekannter Scan wird aus der Referenzdatenbank
+  herausgenommen und als Testeingabe verwendet.
+- `Manuelle Eingabe`: WLAN-Werte koennen zeilenweise als `SSID,BSSID,RSSI`
+  eingegeben werden.
+
+Die App markiert danach:
+
+- den geschaetzten Standort
+- bei vorhandenen Test-Scans auch den echten Messpunkt
+- die naechsten Referenzpunkte mit RSSI-Abweichung
 
 ## Uebungsdateien
 
@@ -188,11 +216,19 @@ GitHub Actions:
   `.github/workflows/ci.yml`.
 - Dort werden die Abhaengigkeiten installiert und die `pytest`-Tests ausgefuehrt.
 
+## Kurze Erklaerung fuer Rueckfragen
+
+Die wichtigsten Projektentscheidungen sind kompakt dokumentiert in:
+
+```text
+docs/professor_erklaerung.txt
+```
+
 ## Naechste moegliche Erweiterungen
 
 - weitere CSV-Dateien in `data/raw/` aufnehmen
 - mehrere Messlaeufe vergleichen
 - die Kreis-Ueberlagerung in eine explizite Routerbereichs-Schaetzung
   ueberfuehren
-- spaeter die Selbstlokalisierung gegen bekannte Messpunkte testen
+- die Selbstlokalisierung mit weiteren Testlaeufen evaluieren
 - optional eine Smartphone-App als zusaetzliches Projektpaket ergaenzen

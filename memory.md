@@ -19,6 +19,14 @@
   `1970-01-01`-Zeitstempel.
 - Die App nutzt aktuell `map_innenstadt.osm` als fokussierten Innenstadt-
   Ausschnitt.
+- Die App berechnet in der Defaultansicht `Alle / Alle` keine Radiuskreise und
+  keine Overlap-Punkte mehr, damit sie mit dem grossen Datensatz sofort sichtbar
+  bleibt.
+- Es gibt eine erste Standort-Testlogik in `src/fingerprint_localization.py`.
+  Sie schaetzt eine Position ueber gewichteten Vergleich eines WLAN-Fingerprints
+  gegen bekannte Referenz-Scans.
+- `docs/professor_erklaerung.txt` erklaert die wichtigsten Punkte kompakt fuer
+  Rueckfragen im Kurs.
 - Der aktuelle Stand konzentriert sich auf Einlesen, Bereinigung, Scan-Zusammen-
   fassung, Radius-Schaetzung, interaktive OSM-Ueberlagerung und erste
   automatisierte Tests.
@@ -51,6 +59,8 @@
 - Kreis-Ueberlagerungen fuer spaetere Router- oder Standortabschaetzung
   nutzbar machen
 - erste automatische Tests und GitHub Actions stabil betreiben
+- ersten Standort-Testrun ueber vorhandene Scans oder manuelle
+  `SSID,BSSID,RSSI`-Eingabe ausprobieren
 - Projekt klein und kursgerecht halten
 - Dokumentation und Git-Stand sauber halten
 

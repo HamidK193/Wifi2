@@ -65,6 +65,7 @@ def build_router_map(
     selected_observations: pd.DataFrame,
     overlap_points: pd.DataFrame,
     network_colors: dict[str, str],
+    position_estimate: object | None = None,
 ) -> folium.Map:
     center_lat = float(scan_summary["latitude"].mean())
     center_lon = float(scan_summary["longitude"].mean())
@@ -80,6 +81,7 @@ def build_router_map(
     add_scan_markers(router_map, scan_summary)
     add_router_radius_circles(router_map, selected_observations, network_colors)
     add_overlap_markers(router_map, overlap_points)
+    add_position_estimate_marker(router_map, position_estimate)
     fit_map_to_scan_bounds(router_map, scan_summary)
     folium.LayerControl(collapsed=False).add_to(router_map)
 
@@ -198,6 +200,37 @@ def add_overlap_markers(router_map: folium.Map, overlap_points: pd.DataFrame) ->
         ).add_to(overlap_group)
 
     overlap_group.add_to(router_map)
+
+
+def add_position_estimate_marker(router_map: folium.Map, position_estimate: object | None) -> None:
+    if position_estimate is None:
+        return
+
+    estimate_group = folium.FeatureGroup(name="Geschaetzter Standort", show=True)
+    popup_text = (
+        "Geschaetzter Standort<br>"
+        f"Verwendete Treffer: {position_estimate['matched_networks']}<br>"
+        f"Bestes RSSI-RMSE: {position_estimate['best_rmse']:.1f}"
+    )
+    if position_estimate["error_m"] is not None:
+        popup_text += f"<br>Fehler gegen Testpunkt: {position_estimate['error_m']:.1f} m"
+
+    folium.Marker(
+        location=[position_estimate["latitude"], position_estimate["longitude"]],
+        popup=folium.Popup(popup_text, max_width=260),
+        tooltip="Geschaetzter Standort",
+        icon=folium.Icon(color="red", icon="screenshot", prefix="glyphicon"),
+    ).add_to(estimate_group)
+
+    if position_estimate["actual_latitude"] is not None and position_estimate["actual_longitude"] is not None:
+        folium.Marker(
+            location=[position_estimate["actual_latitude"], position_estimate["actual_longitude"]],
+            popup=folium.Popup("Tatsaechlicher Test-Scan", max_width=220),
+            tooltip="Tatsaechlicher Test-Scan",
+            icon=folium.Icon(color="green", icon="map-marker", prefix="glyphicon"),
+        ).add_to(estimate_group)
+
+    estimate_group.add_to(router_map)
 
 
 def fit_map_to_scan_bounds(router_map: folium.Map, scan_summary: pd.DataFrame) -> None:
