@@ -5,12 +5,14 @@ import streamlit as st
 from streamlit_folium import st_folium
 
 from src.fingerprint_localization import (
-    estimate_position_from_fingerprint,
     get_scan_input_observations,
     parse_manual_wifi_input,
+    run_leave_one_scan_out_benchmark,
 )
-from src.localization_logic import estimate_overlap_points
-from src.project_pipeline import run_data_pipeline
+from src.load_wifi_csv import load_wifi_csv
+from src.localization_logic import estimate_overlap_points, estimate_position_from_access_points
+from src.preprocess_wifi_data import clean_wifi_data, create_scan_summary
+from src.project_pipeline import load_runtime_data
 from src.visualize_wifi_data import build_router_map, load_osm_map
 
 RAW_CSV_PATH = Path("data/raw/WigleWifi_20260408161721.csv")
@@ -22,8 +24,8 @@ OVERLAP_COLUMNS = ["latitude", "longitude", "support_count", "network_id", "ssid
 
 
 @st.cache_data(show_spinner=False)
-def load_pipeline_data() -> dict[str, object]:
-    return run_data_pipeline(RAW_CSV_PATH, PROCESSED_DIR)
+def load_runtime_bundle() -> dict[str, object]:
+    return load_runtime_data(PROCESSED_DIR)
 
 
 @st.cache_data(show_spinner=False)
@@ -31,38 +33,54 @@ def load_osm_data() -> dict[str, object]:
     return load_osm_map(RAW_OSM_PATH)
 
 
+@st.cache_data(show_spinner=False)
+def load_calibration_bundle() -> dict[str, object] | None:
+    if not RAW_CSV_PATH.exists():
+        return None
+
+    raw_dataframe = load_wifi_csv(RAW_CSV_PATH)
+    cleaned_dataframe = clean_wifi_data(
+        raw_dataframe,
+        require_coordinates=True,
+        include_coordinates=True,
+    )
+    scan_summary = create_scan_summary(cleaned_dataframe)
+    return {
+        "cleaned_dataframe": cleaned_dataframe,
+        "scan_summary": scan_summary,
+    }
+
+
 def main() -> None:
     st.set_page_config(page_title="WiFi Selbstlokalisierung", layout="wide")
     st.title("WiFi-basierte Selbstlokalisierung")
     st.write(
-        "Die Karte zeigt nicht den exakten Routerpunkt, sondern pro Beobachtung "
-        "einen moeglichen Radiusbereich. Mehrere Kreise desselben Netzwerks "
-        "koennen sich ueberlagern und damit den wahrscheinlichen Routerbereich eingrenzen."
+        "Die Laufzeitansicht arbeitet mit triangulierten Access Points und "
+        "triangulierten Scan-Punkten. Roh-GPS wird im normalen Endtest nicht verwendet."
     )
-
-    if not RAW_CSV_PATH.exists():
-        st.error(f"CSV-Datei fehlt: {RAW_CSV_PATH}")
-        return
 
     if not RAW_OSM_PATH.exists():
         st.error(f"OSM-Datei fehlt: {RAW_OSM_PATH}")
         return
 
+    try:
+        runtime_data = load_runtime_bundle()
+    except FileNotFoundError as error:
+        st.error("Verarbeitete Artefakte fehlen. Starte zuerst `py main.py`, um die Triangulationsdaten zu erzeugen.")
+        st.caption(str(error))
+        return
+
     with st.spinner("Daten werden geladen..."):
-        pipeline_data = load_pipeline_data()
         osm_map = load_osm_data()
 
-    scan_summary = pipeline_data["scan_summary"]
-    cleaned_dataframe = pipeline_data["cleaned_dataframe"]
-    network_summary = pipeline_data["network_summary"]
-    network_observations = pipeline_data["network_observations"]
-    dataset_summary = pipeline_data["dataset_summary"]
+    scan_summary = runtime_data["scan_summary"]
+    network_summary = runtime_data["network_summary"]
+    network_observations = runtime_data["network_observations"]
+    dataset_summary = runtime_data["dataset_summary"]
+    access_points = runtime_data["access_points"]
 
     selected_ssid, selected_bssid = render_filters(network_summary)
-    position_estimate, test_input_observations = render_position_test_controls(
-        cleaned_dataframe,
-        scan_summary,
-    )
+    position_estimate, test_input_observations = render_position_test_controls(access_points)
     filtered_summary = filter_network_summary(network_summary, selected_ssid, selected_bssid)
     filtered_observations = filter_network_observations(network_observations, selected_ssid, selected_bssid)
     map_observations = get_map_observations(filtered_observations, selected_ssid, selected_bssid)
@@ -79,6 +97,7 @@ def main() -> None:
             map_observations,
             overlap_points,
             network_colors,
+            access_points,
             position_estimate,
         )
 
@@ -100,6 +119,7 @@ def main() -> None:
             selected_bssid,
             position_estimate,
             test_input_observations,
+            access_points,
         )
 
 
@@ -117,43 +137,51 @@ def render_filters(network_summary: pd.DataFrame) -> tuple[str, str]:
 
 
 def render_position_test_controls(
-    cleaned_dataframe: pd.DataFrame,
-    scan_summary: pd.DataFrame,
+    access_points: pd.DataFrame,
 ) -> tuple[object | None, pd.DataFrame]:
+    empty_observations = pd.DataFrame(columns=["network_id", "ssid", "bssid", "rssi"])
+
     with st.sidebar:
         st.header("Standort-Test")
         mode = st.selectbox(
-            "Eingabe",
-            ["Aus", "Vorhandenen Scan testen", "Manuelle Eingabe"],
+            "Modus",
+            ["Aus", "Manuelle Eingabe", "Dev-Benchmark"],
             index=0,
         )
-        k = st.slider("Vergleichspunkte (k)", min_value=1, max_value=5, value=3)
+        min_matches = st.slider("Minimale AP-Treffer", min_value=3, max_value=6, value=3)
 
         if mode == "Aus":
-            return None, pd.DataFrame(columns=["network_id", "ssid", "bssid", "rssi"])
+            return None, empty_observations
 
-        if mode == "Vorhandenen Scan testen":
-            scan_ids = scan_summary["scan_id"].tolist()
-            selected_scan_id = st.selectbox("Test-Scan", scan_ids, index=0)
-            input_observations = get_scan_input_observations(cleaned_dataframe, selected_scan_id)
-            estimate = estimate_position_from_fingerprint(
-                cleaned_dataframe,
+        if mode == "Manuelle Eingabe":
+            manual_text = st.text_area(
+                "WLAN-Werte",
+                placeholder="SSID,BSSID,RSSI\neduroam,aa:bb:cc:dd:ee:ff,-65",
+                height=140,
+            )
+            input_observations = parse_manual_wifi_input(manual_text)
+            estimate = estimate_position_from_access_points(
+                access_points,
                 input_observations,
-                exclude_scan_id=selected_scan_id,
-                k=k,
+                min_matches=min_matches,
             )
             return estimate, input_observations
 
-        manual_text = st.text_area(
-            "WLAN-Werte",
-            placeholder="SSID,BSSID,RSSI\nPF-NET,aa:bb:cc:dd:ee:ff,-65",
-            height=140,
+        calibration_bundle = load_calibration_bundle()
+        if calibration_bundle is None:
+            st.warning("Kein Rohdatensatz mit GPS verfuegbar. Der Dev-Benchmark ist daher deaktiviert.")
+            return None, empty_observations
+
+        scan_ids = calibration_bundle["scan_summary"]["scan_id"].tolist()
+        selected_scan_id = st.selectbox("Benchmark-Scan", scan_ids, index=0)
+        input_observations = get_scan_input_observations(
+            calibration_bundle["cleaned_dataframe"],
+            selected_scan_id,
         )
-        input_observations = parse_manual_wifi_input(manual_text)
-        estimate = estimate_position_from_fingerprint(
-            cleaned_dataframe,
-            input_observations,
-            k=k,
+        estimate = run_leave_one_scan_out_benchmark(
+            calibration_bundle["cleaned_dataframe"],
+            selected_scan_id,
+            min_matches=min_matches,
         )
         return estimate, input_observations
 
@@ -300,11 +328,12 @@ def render_sidebar_content(
     selected_bssid: str,
     position_estimate: object | None,
     test_input_observations: pd.DataFrame,
+    access_points: pd.DataFrame,
 ) -> None:
     st.subheader("Datensatz")
     st.metric("Scans", int(dataset_summary["scans"]))
     st.metric("Gefilterte Netzwerke", int(filtered_summary["network_id"].nunique()))
-    st.metric("Messzeilen", int(dataset_summary["rows"]))
+    st.metric("Triangulierte APs", int(len(access_points)))
 
     st.subheader("Gefilterte Auswahl")
     if filtered_summary.empty:
@@ -313,8 +342,8 @@ def render_sidebar_content(
 
     if selected_ssid == ALL_OPTION and selected_bssid == ALL_OPTION:
         st.info(
-            "Uebersicht: Es werden nur die Messpunkte angezeigt. "
-            "Waehle eine SSID oder MAC-Adresse aus, um Router-Radien einzublenden."
+            "Uebersicht: Es werden triangulierte Scan-Punkte und Access Points angezeigt. "
+            "Waehle eine SSID oder MAC-Adresse aus, um Schaetzkreise einzublenden."
         )
         render_top_networks(filtered_summary)
         render_position_estimate(position_estimate, test_input_observations)
@@ -332,10 +361,7 @@ def render_sidebar_content(
             "Radiusbereich: "
             f"{selected_summary['min_radius_m']:.1f} m bis {selected_summary['max_radius_m']:.1f} m"
         )
-        st.write(
-            "Ueberlappungspunkte: "
-            f"{len(overlap_points)}"
-        )
+        st.write(f"Ueberlappungspunkte: {len(overlap_points)}")
     else:
         st.write(
             "Mehrere Netzwerke sind aktiv. Jede eindeutige Kombination aus "
@@ -362,7 +388,7 @@ def render_sidebar_content(
     if overlap_points.empty:
         st.info(
             "Fuer die aktuelle Auswahl gibt es noch keine starke Kreis-Ueberlappung "
-            "aus mindestens zwei Beobachtungen desselben Netzwerks."
+            "aus mindestens zwei triangulierten Scan-Beobachtungen desselben Netzwerks."
         )
     else:
         st.success(
@@ -430,35 +456,37 @@ def render_position_estimate(position_estimate: object | None, test_input_observ
 
     if position_estimate is None:
         st.warning(
-            "Keine Position gefunden. Mindestens eine eingegebene `SSID+BSSID`-Kombination "
-            "muss in der Referenzdatenbank vorkommen."
+            "Keine Position gefunden. Es muessen mindestens drei eingegebene `SSID+BSSID`-Kombinationen "
+            "als triangulierte Access Points bekannt sein."
         )
         return
 
     st.success("Geschaetzter Standort wurde auf der Karte markiert.")
     st.write(f"Latitude: `{position_estimate['latitude']:.6f}`")
     st.write(f"Longitude: `{position_estimate['longitude']:.6f}`")
-    st.write(f"Beste RSSI-Abweichung: {position_estimate['best_rmse']:.1f}")
-    st.write(f"Gemeinsame Netzwerke: {position_estimate['matched_networks']}")
+    st.write(f"Residual-RMSE: {position_estimate['residual_rmse']:.1f} m")
+    st.write(f"Gematchte APs: {position_estimate['matched_networks']}")
+    st.write(f"Konfidenz: {position_estimate['confidence_score']:.2f}")
 
     if position_estimate["error_m"] is not None:
-        st.write(f"Fehler gegen echten Test-Scan: {position_estimate['error_m']:.1f} m")
+        st.write(f"Benchmark-Fehler gegen GPS-Referenz: {position_estimate['error_m']:.1f} m")
 
-    st.dataframe(
-        position_estimate["candidates"][
-            ["scan_id", "rmse", "matched_networks", "latitude", "longitude"]
-        ],
-        use_container_width=True,
-        hide_index=True,
-    )
+    matched_access_points = position_estimate.get("matched_access_points")
+    if isinstance(matched_access_points, pd.DataFrame) and not matched_access_points.empty:
+        st.dataframe(
+            matched_access_points[
+                ["ssid", "bssid", "rssi", "estimated_radius_m", "quality_flag"]
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
 
 
 def render_architecture_note() -> None:
     st.subheader("Architekturhinweis")
     st.write(
-        "Die Software modelliert pro Messung nur einen moeglichen Radius. "
-        "Ein exakter Routerstandort wird nicht behauptet. Erst mehrere Beobachtungen "
-        "desselben Netzwerks koennen einen wahrscheinlicheren Bereich ergeben."
+        "Die Runtime nutzt nur triangulierte Access Points und RSSI-basierte Distanzschaetzungen. "
+        "Roh-GPS ist nur fuer die Offline-Kalibrierung und den optionalen Dev-Benchmark relevant."
     )
 
 

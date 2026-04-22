@@ -9,6 +9,6 @@ unique_ssids: 1124
 time_start: 2026-04-08 11:32:48
 time_end: 2026-04-08 14:13:01
 rssi_range: -97 bis -18 dBm
-latitude_range: 48.878451 bis 48.891593
-longitude_range: 8.694906 bis 8.717896
-bbox_meters: 1463.0 m x 1682.9 m
+latitude_range: 48.878575 bis 48.891639
+longitude_range: 8.696147 bis 8.715884
+bbox_meters: 1454.3 m x 1444.7 m

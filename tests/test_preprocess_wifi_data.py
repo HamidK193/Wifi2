@@ -15,11 +15,32 @@ def test_clean_wifi_data_filters_non_wifi_and_invalid_rows(sample_raw_dataframe)
     assert cleaned["scan_id"].tolist() == ["scan_01", "scan_01", "scan_02"]
 
 
+def test_clean_wifi_data_accepts_runtime_rows_without_coordinates(sample_raw_dataframe) -> None:
+    runtime_input = sample_raw_dataframe.drop(columns=["CurrentLatitude", "CurrentLongitude", "AccuracyMeters"])
+
+    cleaned = clean_wifi_data(
+        runtime_input,
+        require_coordinates=False,
+        include_coordinates=False,
+    )
+
+    assert len(cleaned) == 3
+    assert "latitude" not in cleaned.columns
+    assert cleaned["scan_id"].tolist() == ["scan_01", "scan_01", "scan_02"]
+
+
 def test_clean_wifi_data_raises_for_missing_required_columns(sample_raw_dataframe) -> None:
     broken = sample_raw_dataframe.drop(columns=["RSSI"])
 
     with pytest.raises(ValueError, match="Fehlende Pflichtspalten"):
         clean_wifi_data(broken)
+
+
+def test_calibration_cleaning_requires_coordinates(sample_raw_dataframe) -> None:
+    broken = sample_raw_dataframe.drop(columns=["CurrentLatitude", "CurrentLongitude"])
+
+    with pytest.raises(ValueError, match="Fehlende Pflichtspalten"):
+        clean_wifi_data(broken, require_coordinates=True)
 
 
 def test_scan_summary_and_dataset_summary_are_consistent(sample_raw_dataframe) -> None:

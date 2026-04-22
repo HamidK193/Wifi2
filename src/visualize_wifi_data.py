@@ -65,10 +65,10 @@ def build_router_map(
     selected_observations: pd.DataFrame,
     overlap_points: pd.DataFrame,
     network_colors: dict[str, str],
+    access_points: pd.DataFrame,
     position_estimate: object | None = None,
 ) -> folium.Map:
-    center_lat = float(scan_summary["latitude"].mean())
-    center_lon = float(scan_summary["longitude"].mean())
+    center_lat, center_lon = _get_map_center(scan_summary, access_points, osm_map["bounds"])
 
     router_map = folium.Map(
         location=[center_lat, center_lon],
@@ -79,10 +79,11 @@ def build_router_map(
 
     add_osm_base_layers(router_map, osm_map)
     add_scan_markers(router_map, scan_summary)
+    add_access_point_markers(router_map, access_points)
     add_router_radius_circles(router_map, selected_observations, network_colors)
     add_overlap_markers(router_map, overlap_points)
     add_position_estimate_marker(router_map, position_estimate)
-    fit_map_to_scan_bounds(router_map, scan_summary)
+    fit_map_to_bounds(router_map, scan_summary, access_points, osm_map["bounds"])
     folium.LayerControl(collapsed=False).add_to(router_map)
 
     return router_map
@@ -115,16 +116,23 @@ def add_osm_base_layers(router_map: folium.Map, osm_map: dict[str, object]) -> N
 
 
 def add_scan_markers(router_map: folium.Map, scan_summary: pd.DataFrame) -> None:
-    scan_group = folium.FeatureGroup(name="Messpunkte", show=True)
+    valid_scans = scan_summary.dropna(subset=["latitude", "longitude"]).copy()
+    if valid_scans.empty:
+        return
 
-    for _, row in scan_summary.iterrows():
+    scan_group = folium.FeatureGroup(name="Triangulierte Scan-Punkte", show=True)
+
+    for _, row in valid_scans.iterrows():
         popup_text = (
             f"Scan: {row['scan_id']}<br>"
             f"Zeit: {row['timestamp']}<br>"
             f"Sichtbare Netzwerke: {int(row['visible_networks'])}<br>"
-            f"Mittlere RSSI: {row['mean_rssi']:.1f} dBm<br>"
-            f"GPS-Genauigkeit: {row['accuracy_m']:.1f} m"
+            f"Mittlere RSSI: {row['mean_rssi']:.1f} dBm"
         )
+        if "matched_access_points" in row and pd.notna(row["matched_access_points"]):
+            popup_text += f"<br>Gematchte APs: {int(row['matched_access_points'])}"
+        if "residual_rmse" in row and pd.notna(row["residual_rmse"]):
+            popup_text += f"<br>Residual-RMSE: {float(row['residual_rmse']):.1f} m"
 
         folium.CircleMarker(
             location=[row["latitude"], row["longitude"]],
@@ -141,14 +149,50 @@ def add_scan_markers(router_map: folium.Map, scan_summary: pd.DataFrame) -> None
     scan_group.add_to(router_map)
 
 
+def add_access_point_markers(router_map: folium.Map, access_points: pd.DataFrame) -> None:
+    valid_access_points = access_points.dropna(subset=["latitude", "longitude"]).copy()
+    if valid_access_points.empty:
+        return
+
+    access_point_group = folium.FeatureGroup(name="Triangulierte Access Points", show=True)
+
+    for _, row in valid_access_points.iterrows():
+        popup_text = (
+            f"SSID: {row['ssid']}<br>"
+            f"BSSID: {row['bssid']}<br>"
+            f"Kalibrierungs-Scans: {int(row['scan_count'])}<br>"
+            f"RMSE: {row['rmse_m']:.1f} m<br>"
+            f"Qualitaet: {row['quality_flag']}"
+        )
+        marker_color = "green" if row["quality_flag"] == "good" else "orange"
+
+        folium.CircleMarker(
+            location=[row["latitude"], row["longitude"]],
+            radius=5,
+            color=marker_color,
+            fill=True,
+            fill_color=marker_color,
+            fill_opacity=0.85,
+            weight=2,
+            popup=folium.Popup(popup_text, max_width=280),
+            tooltip=f"AP: {row['ssid']} | {row['bssid']}",
+        ).add_to(access_point_group)
+
+    access_point_group.add_to(router_map)
+
+
 def add_router_radius_circles(
     router_map: folium.Map,
     selected_observations: pd.DataFrame,
     network_colors: dict[str, str],
 ) -> None:
-    radius_group = folium.FeatureGroup(name="Moegliche Router-Radien", show=True)
+    valid_observations = selected_observations.dropna(subset=["latitude", "longitude"]).copy()
+    if valid_observations.empty:
+        return
 
-    for _, row in selected_observations.iterrows():
+    radius_group = folium.FeatureGroup(name="Moegliche Nutzer-Radien", show=True)
+
+    for _, row in valid_observations.iterrows():
         color = network_colors.get(row["network_id"], "#2563eb")
         popup_text = (
             f"SSID: {row['ssid']}<br>"
@@ -209,11 +253,12 @@ def add_position_estimate_marker(router_map: folium.Map, position_estimate: obje
     estimate_group = folium.FeatureGroup(name="Geschaetzter Standort", show=True)
     popup_text = (
         "Geschaetzter Standort<br>"
-        f"Verwendete Treffer: {position_estimate['matched_networks']}<br>"
-        f"Bestes RSSI-RMSE: {position_estimate['best_rmse']:.1f}"
+        f"Gematchte APs: {position_estimate['matched_networks']}<br>"
+        f"Residual-RMSE: {position_estimate['residual_rmse']:.1f} m<br>"
+        f"Konfidenz: {position_estimate['confidence_score']:.2f}"
     )
     if position_estimate["error_m"] is not None:
-        popup_text += f"<br>Fehler gegen Testpunkt: {position_estimate['error_m']:.1f} m"
+        popup_text += f"<br>Benchmark-Fehler: {position_estimate['error_m']:.1f} m"
 
     folium.Marker(
         location=[position_estimate["latitude"], position_estimate["longitude"]],
@@ -225,19 +270,37 @@ def add_position_estimate_marker(router_map: folium.Map, position_estimate: obje
     if position_estimate["actual_latitude"] is not None and position_estimate["actual_longitude"] is not None:
         folium.Marker(
             location=[position_estimate["actual_latitude"], position_estimate["actual_longitude"]],
-            popup=folium.Popup("Tatsaechlicher Test-Scan", max_width=220),
-            tooltip="Tatsaechlicher Test-Scan",
+            popup=folium.Popup("Benchmark-Referenzpunkt", max_width=220),
+            tooltip="Benchmark-Referenzpunkt",
             icon=folium.Icon(color="green", icon="map-marker", prefix="glyphicon"),
         ).add_to(estimate_group)
 
     estimate_group.add_to(router_map)
 
 
-def fit_map_to_scan_bounds(router_map: folium.Map, scan_summary: pd.DataFrame) -> None:
-    min_lat = float(scan_summary["latitude"].min())
-    max_lat = float(scan_summary["latitude"].max())
-    min_lon = float(scan_summary["longitude"].min())
-    max_lon = float(scan_summary["longitude"].max())
+def fit_map_to_bounds(
+    router_map: folium.Map,
+    scan_summary: pd.DataFrame,
+    access_points: pd.DataFrame,
+    osm_bounds: dict[str, float],
+) -> None:
+    frames = []
+    if {"latitude", "longitude"}.issubset(scan_summary.columns):
+        frames.append(scan_summary.loc[:, ["latitude", "longitude"]].dropna())
+    if {"latitude", "longitude"}.issubset(access_points.columns):
+        frames.append(access_points.loc[:, ["latitude", "longitude"]].dropna())
+
+    if frames:
+        positions = pd.concat(frames, ignore_index=True)
+        min_lat = float(positions["latitude"].min())
+        max_lat = float(positions["latitude"].max())
+        min_lon = float(positions["longitude"].min())
+        max_lon = float(positions["longitude"].max())
+    else:
+        min_lat = float(osm_bounds["minlat"])
+        max_lat = float(osm_bounds["maxlat"])
+        min_lon = float(osm_bounds["minlon"])
+        max_lon = float(osm_bounds["maxlon"])
 
     lat_padding = max((max_lat - min_lat) * 0.8, 0.00025)
     lon_padding = max((max_lon - min_lon) * 0.18, 0.00018)
@@ -247,4 +310,23 @@ def fit_map_to_scan_bounds(router_map: folium.Map, scan_summary: pd.DataFrame) -
             [min_lat - lat_padding, min_lon - lon_padding],
             [max_lat + lat_padding, max_lon + lon_padding],
         ]
+    )
+
+
+def _get_map_center(
+    scan_summary: pd.DataFrame,
+    access_points: pd.DataFrame,
+    osm_bounds: dict[str, float],
+) -> tuple[float, float]:
+    scan_positions = scan_summary.dropna(subset=["latitude", "longitude"]) if {"latitude", "longitude"}.issubset(scan_summary.columns) else pd.DataFrame()
+    valid_access_points = access_points.dropna(subset=["latitude", "longitude"]) if {"latitude", "longitude"}.issubset(access_points.columns) else pd.DataFrame()
+
+    if not scan_positions.empty:
+        return float(scan_positions["latitude"].mean()), float(scan_positions["longitude"].mean())
+    if not valid_access_points.empty:
+        return float(valid_access_points["latitude"].mean()), float(valid_access_points["longitude"].mean())
+
+    return (
+        (float(osm_bounds["minlat"]) + float(osm_bounds["maxlat"])) / 2,
+        (float(osm_bounds["minlon"]) + float(osm_bounds["maxlon"])) / 2,
     )

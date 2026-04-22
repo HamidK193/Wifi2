@@ -1,6 +1,10 @@
 import pandas as pd
 
-from src.localization_logic import build_network_id, calculate_distance_m
+from src.localization_logic import (
+    calculate_distance_m,
+    estimate_position_from_access_points,
+    triangulate_access_points,
+)
 
 
 def get_scan_input_observations(cleaned_dataframe: pd.DataFrame, scan_id: str) -> pd.DataFrame:
@@ -37,7 +41,7 @@ def parse_manual_wifi_input(text: str) -> pd.DataFrame:
 
         rows.append(
             {
-                "network_id": build_network_id(ssid, bssid),
+                "network_id": f"{ssid} | {bssid}",
                 "ssid": ssid,
                 "bssid": bssid,
                 "rssi": rssi,
@@ -47,108 +51,93 @@ def parse_manual_wifi_input(text: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["network_id", "ssid", "bssid", "rssi"])
 
 
+def run_leave_one_scan_out_benchmark(
+    calibration_dataframe: pd.DataFrame,
+    scan_id: str,
+    *,
+    min_matches: int = 3,
+) -> dict[str, object] | None:
+    input_observations = get_scan_input_observations(calibration_dataframe, scan_id)
+    if input_observations.empty:
+        return None
+
+    reference = calibration_dataframe.loc[calibration_dataframe["scan_id"] != scan_id].copy()
+    access_points = triangulate_access_points(reference, min_scans=min_matches, allow_empty=True)
+    if access_points.empty:
+        return None
+
+    estimate = estimate_position_from_access_points(
+        access_points,
+        input_observations,
+        min_matches=min_matches,
+    )
+    if estimate is None:
+        return None
+
+    actual_position = get_scan_position(calibration_dataframe, scan_id)
+    if actual_position is not None:
+        estimate["actual_latitude"] = actual_position["latitude"]
+        estimate["actual_longitude"] = actual_position["longitude"]
+        estimate["error_m"] = calculate_distance_m(
+            estimate["latitude"],
+            estimate["longitude"],
+            actual_position["latitude"],
+            actual_position["longitude"],
+            actual_position["latitude"],
+        )
+
+    estimate["input_observations"] = input_observations
+    estimate["benchmark_access_points"] = access_points
+    return estimate
+
+
 def estimate_position_from_fingerprint(
     cleaned_dataframe: pd.DataFrame,
     input_observations: pd.DataFrame,
     *,
     exclude_scan_id: str | None = None,
-    k: int = 3,
-    min_matches: int = 1,
+    min_matches: int = 3,
 ) -> dict[str, object] | None:
-    if input_observations.empty:
-        return None
-
     reference = cleaned_dataframe.copy()
     if exclude_scan_id is not None:
         reference = reference.loc[reference["scan_id"] != exclude_scan_id].copy()
 
-    input_by_network = (
-        input_observations.groupby("network_id", as_index=True)["rssi"]
-        .mean()
-        .dropna()
-    )
-    if input_by_network.empty:
+    access_points = triangulate_access_points(reference, min_scans=min_matches, allow_empty=True)
+    if access_points.empty:
         return None
 
-    scan_positions = (
-        reference.groupby("scan_id", as_index=False)
-        .agg(latitude=("latitude", "first"), longitude=("longitude", "first"))
+    estimate = estimate_position_from_access_points(
+        access_points,
+        input_observations,
+        min_matches=min_matches,
     )
-    reference_rssi = reference.pivot_table(
-        index="scan_id",
-        columns="network_id",
-        values="rssi",
-        aggfunc="mean",
-    )
+    if estimate is None or exclude_scan_id is None:
+        return estimate
 
-    common_networks = [network_id for network_id in input_by_network.index if network_id in reference_rssi.columns]
-    if not common_networks:
-        return None
-
-    candidates: list[dict[str, object]] = []
-
-    for scan_id, reference_row in reference_rssi[common_networks].iterrows():
-        available = reference_row.dropna()
-        if len(available) < min_matches:
-            continue
-
-        input_values = input_by_network.loc[available.index]
-        rmse = float(((available - input_values) ** 2).mean() ** 0.5)
-        matched_networks = int(len(available))
-        candidates.append(
-            {
-                "scan_id": scan_id,
-                "rmse": rmse,
-                "matched_networks": matched_networks,
-                "weight": matched_networks / max(rmse, 1.0),
-            }
+    actual_position = get_scan_position(cleaned_dataframe, exclude_scan_id)
+    if actual_position is not None:
+        estimate["actual_latitude"] = actual_position["latitude"]
+        estimate["actual_longitude"] = actual_position["longitude"]
+        estimate["error_m"] = calculate_distance_m(
+            estimate["latitude"],
+            estimate["longitude"],
+            actual_position["latitude"],
+            actual_position["longitude"],
+            actual_position["latitude"],
         )
-
-    if not candidates:
-        return None
-
-    candidates_dataframe = (
-        pd.DataFrame(candidates)
-        .merge(scan_positions, on="scan_id", how="left")
-        .sort_values(["rmse", "matched_networks"], ascending=[True, False])
-        .head(k)
-        .reset_index(drop=True)
-    )
-
-    weight_sum = float(candidates_dataframe["weight"].sum())
-    latitude = float((candidates_dataframe["latitude"] * candidates_dataframe["weight"]).sum() / weight_sum)
-    longitude = float((candidates_dataframe["longitude"] * candidates_dataframe["weight"]).sum() / weight_sum)
-
-    estimate: dict[str, object] = {
-        "latitude": latitude,
-        "longitude": longitude,
-        "matched_networks": int(candidates_dataframe["matched_networks"].max()),
-        "best_rmse": float(candidates_dataframe["rmse"].min()),
-        "candidates": candidates_dataframe,
-        "actual_latitude": None,
-        "actual_longitude": None,
-        "error_m": None,
-    }
-
-    if exclude_scan_id is not None:
-        actual_position = get_scan_position(cleaned_dataframe, exclude_scan_id)
-        if actual_position is not None:
-            estimate["actual_latitude"] = actual_position["latitude"]
-            estimate["actual_longitude"] = actual_position["longitude"]
-            estimate["error_m"] = calculate_distance_m(
-                latitude,
-                longitude,
-                actual_position["latitude"],
-                actual_position["longitude"],
-                actual_position["latitude"],
-            )
 
     return estimate
 
 
 def get_scan_position(cleaned_dataframe: pd.DataFrame, scan_id: str) -> dict[str, float] | None:
+    if not {"latitude", "longitude"}.issubset(cleaned_dataframe.columns):
+        return None
+
     scan_rows = cleaned_dataframe.loc[cleaned_dataframe["scan_id"] == scan_id]
     if scan_rows.empty:
+        return None
+
+    if scan_rows["latitude"].isna().all() or scan_rows["longitude"].isna().all():
         return None
 
     return {

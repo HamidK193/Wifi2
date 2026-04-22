@@ -2,7 +2,10 @@ from src.localization_logic import (
     build_network_id,
     create_network_observations,
     create_network_summary,
+    estimate_position_from_access_points,
     estimate_radius_from_rssi,
+    triangulate_access_points,
+    triangulate_scan_positions,
 )
 from src.preprocess_wifi_data import clean_wifi_data
 
@@ -31,3 +34,45 @@ def test_network_observations_and_summary_group_by_network_and_scan(sample_raw_d
     ].iloc[0]
     assert int(alpha_summary["scan_count"]) == 2
     assert int(alpha_summary["total_observations"]) == 2
+
+
+def test_triangulate_access_points_returns_quality_metrics(triangulation_raw_dataframe) -> None:
+    calibration_dataframe = clean_wifi_data(
+        triangulation_raw_dataframe,
+        require_coordinates=True,
+        include_coordinates=True,
+    )
+
+    access_points = triangulate_access_points(calibration_dataframe)
+
+    assert len(access_points) == 3
+    assert set(access_points["quality_flag"]).issubset({"good", "usable", "weak"})
+    assert (access_points["scan_count"] >= 3).all()
+
+
+def test_runtime_multilateration_works_without_runtime_gps(triangulation_raw_dataframe) -> None:
+    calibration_dataframe = clean_wifi_data(
+        triangulation_raw_dataframe,
+        require_coordinates=True,
+        include_coordinates=True,
+    )
+    runtime_dataframe = clean_wifi_data(
+        triangulation_raw_dataframe,
+        require_coordinates=False,
+        include_coordinates=False,
+    )
+
+    access_points = triangulate_access_points(calibration_dataframe)
+    scan_positions = triangulate_scan_positions(runtime_dataframe, access_points)
+    observations = create_network_observations(runtime_dataframe, scan_positions)
+    input_observations = runtime_dataframe.loc[
+        runtime_dataframe["scan_id"] == "scan_01",
+        ["network_id", "ssid", "bssid", "rssi"],
+    ].copy()
+
+    estimate = estimate_position_from_access_points(access_points, input_observations)
+
+    assert estimate is not None
+    assert estimate["matched_networks"] >= 3
+    assert estimate["confidence_score"] > 0
+    assert len(observations.dropna(subset=["latitude", "longitude"])) > 0

@@ -1,6 +1,13 @@
 venv/
 .venv/
+Lib/
+Scripts/
+etc/
+share/
+include/
+pyvenv.cfg
 __pycache__/
+.pytest_cache/
 *.pyc
 .python-version
 .vscode/

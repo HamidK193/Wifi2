@@ -2,6 +2,21 @@
 
 Alle wichtigen Aenderungen am Projekt werden hier kurz protokolliert.
 
+## 2026-04-22
+
+- Pipeline in zwei Phasen getrennt: GPS nur noch fuer die Offline-Kalibrierung,
+  Laufzeitdaten GPS-frei.
+- triangulierte Access-Point-Artefakte und triangulierte Scan-Positionen in
+  `data/processed/` als neue Standard-Ausgaben eingefuehrt.
+- Haupt-Lokalisierung von Fingerprint-Matching auf AP-Multilateration
+  umgestellt.
+- App so umgebaut, dass sie im Hauptmodus nur noch `data/processed/` laedt und
+  ohne Roh-GPS arbeiten kann.
+- getrennten Dev-Benchmark mit Leave-one-scan-out und GPS-Fehleranzeige
+  eingefuehrt.
+- Tests auf GPS-freie Laufzeitdaten, AP-Triangulation und neue Pipeline
+  erweitert.
+
 ## 2026-04-01
 
 - lokale Git-Identitaet auf `HamidK193 / karatasabdulhamid@gmail.com` gesetzt.

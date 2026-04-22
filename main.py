@@ -35,7 +35,7 @@ def main() -> None:
         print(f"- {output_path}")
 
     print("\nInteraktive Anwendung starten mit:")
-    print("python -m streamlit run app.py")
+    print("py -m streamlit run app.py")
 
 
 if __name__ == "__main__":
