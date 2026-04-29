@@ -9,5 +9,6 @@ pyvenv.cfg
 __pycache__/
 .pytest_cache/
 *.pyc
+*.log
 .python-version
 .vscode/

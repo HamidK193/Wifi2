@@ -41,6 +41,7 @@ fuer dieses Repository.
 - `main.py`
 - `app.py`
 - `src/load_wifi_csv.py`
+- `src/evaluation.py`
 - `src/localization_logic.py`
 - `src/preprocess_wifi_data.py`
 - `src/project_pipeline.py`
@@ -56,7 +57,9 @@ fuer dieses Repository.
 6. Netzwerk-Beobachtungen und Radius-Schaetzungen erzeugen
 7. Kreis-Ueberlagerung desselben Netzwerks vorbereiten
 8. Interaktive OSM-Karte im Browser bereitstellen
-9. Dokumentation aktualisieren
+9. Standort-Schaetzung und GPS-vs-WLAN-Vergleich getrennt anzeigen
+10. Funktionalitaet, Performance und Genauigkeit per Tests absichern
+11. Dokumentation aktualisieren
 
 ### Spaetere Erweiterungen
 

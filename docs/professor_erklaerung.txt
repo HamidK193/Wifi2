@@ -148,15 +148,19 @@ Die App wird gestartet mit:
 
 py -m streamlit run app.py
 
-Sie zeigt:
+Sie zeigt zwei getrennte Kartenansichten:
 
-- OSM-Karte
-- triangulierte Scan-Punkte
-- triangulierte Access Points
-- Radiuskreise fuer ausgewaehlte WLAN-Netzwerke
-- einen GPS-freien Standort-Test
+1. Standort-Schaetzung
+   Diese Ansicht zeigt den aktuell geschaetzten WLAN-Standort, triangulierte
+   Access Points und bei Bedarf Radiuskreise.
 
-Im Dev-Benchmark zeigt die App zusaetzlich den echten Referenzpunkt.
+2. GPS-vs-WLAN-Vergleich
+   Diese Ansicht zeigt die echte GPS-Route als Linie, die geschaetzten
+   WLAN-Positionen und Verbindungslinien zwischen beiden Punkten.
+
+Damit kann man sehen, wie weit die WLAN-Schaetzung vom echten GPS-Punkt
+abweicht. Aus Performance-Gruenden werden Netzwerke und Radiuskreise bei einer
+konkreten Schaetzung nur im relevanten 60-m-Umkreis angezeigt.
 
 
 9. Wichtige Grenzen
@@ -196,6 +200,9 @@ Der aktuelle Stand ist daher eine verstaendliche Grundlage fuer:
 - `src/project_pipeline.py`
   Baut und laedt die laufzeitfaehigen Artefakte in `data/processed/`.
 
+- `src/evaluation.py`
+  Enthaelt Route-Comparison, Fehlerkennzahlen und 60-m-Radiusfilter.
+
 - `src/fingerprint_localization.py`
   Enthaelt Parser fuer Testeingaben und den getrennten Leave-one-scan-out-
   Benchmark.
@@ -204,7 +211,12 @@ Der aktuelle Stand ist daher eine verstaendliche Grundlage fuer:
   Baut die Karte und zeichnet Marker, APs, Scan-Punkte und Radiuskreise.
 
 - `tests/`
-  Enthaelt automatische Tests fuer die wichtigsten Funktionen.
+  Enthaelt automatische Tests fuer Import, Pipeline, Lokalisierung,
+  Radiusfilter, Route-Comparison und Genauigkeitskennzahlen.
+
+- `.github/workflows/ci.yml`
+  Fuehrt bei Push und Pull Request automatisch einen schnellen
+  Pipeline-Smoke-Test und `python -m pytest` aus.
 
 
 11. Typische Prof-Fragen

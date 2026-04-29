@@ -3,6 +3,7 @@ from xml.etree import ElementTree as ET
 
 import folium
 import pandas as pd
+from folium.plugins import PolyLineTextPath
 
 
 def load_osm_map(osm_path: str | Path) -> dict[str, object]:
@@ -67,6 +68,9 @@ def build_router_map(
     network_colors: dict[str, str],
     access_points: pd.DataFrame,
     position_estimate: object | None = None,
+    route_comparison: pd.DataFrame | None = None,
+    show_scan_markers: bool = True,
+    show_access_points: bool = True,
 ) -> folium.Map:
     center_lat, center_lon = _get_map_center(scan_summary, access_points, osm_map["bounds"])
 
@@ -78,12 +82,15 @@ def build_router_map(
     )
 
     add_osm_base_layers(router_map, osm_map)
-    add_scan_markers(router_map, scan_summary)
-    add_access_point_markers(router_map, access_points)
+    add_route_comparison_markers(router_map, route_comparison)
+    if show_scan_markers:
+        add_scan_markers(router_map, scan_summary)
+    if show_access_points:
+        add_access_point_markers(router_map, access_points)
     add_router_radius_circles(router_map, selected_observations, network_colors)
     add_overlap_markers(router_map, overlap_points)
     add_position_estimate_marker(router_map, position_estimate)
-    fit_map_to_bounds(router_map, scan_summary, access_points, osm_map["bounds"])
+    fit_map_to_bounds(router_map, scan_summary, access_points, osm_map["bounds"], route_comparison)
     folium.LayerControl(collapsed=False).add_to(router_map)
 
     return router_map
@@ -278,17 +285,106 @@ def add_position_estimate_marker(router_map: folium.Map, position_estimate: obje
     estimate_group.add_to(router_map)
 
 
+def add_route_comparison_markers(router_map: folium.Map, route_comparison: pd.DataFrame | None) -> None:
+    if route_comparison is None or route_comparison.empty:
+        return
+
+    valid_rows = route_comparison.dropna(
+        subset=[
+            "actual_latitude",
+            "actual_longitude",
+            "estimated_latitude",
+            "estimated_longitude",
+        ]
+    ).copy()
+    if valid_rows.empty:
+        return
+
+    comparison_group = folium.FeatureGroup(name="GPS-vs-WLAN-Routenvergleich", show=True)
+    actual_route = valid_rows[["actual_latitude", "actual_longitude"]].values.tolist()
+
+    if len(actual_route) >= 2:
+        folium.PolyLine(
+            locations=actual_route,
+            color="#dc2626",
+            weight=4,
+            opacity=0.85,
+            tooltip="Aufgezeichnete GPS-Route",
+        ).add_to(comparison_group)
+
+    for _, row in valid_rows.iterrows():
+        folium.CircleMarker(
+            location=[row["actual_latitude"], row["actual_longitude"]],
+            radius=3,
+            color="#991b1b",
+            fill=True,
+            fill_color="#ffffff",
+            fill_opacity=1.0,
+            weight=2,
+            popup=folium.Popup(f"GPS-Referenz<br>Scan: {row['scan_id']}", max_width=220),
+            tooltip=f"GPS {row['scan_id']}",
+        ).add_to(comparison_group)
+
+        folium.CircleMarker(
+            location=[row["estimated_latitude"], row["estimated_longitude"]],
+            radius=5,
+            color="#ef4444",
+            fill=True,
+            fill_color="#ef4444",
+            fill_opacity=0.95,
+            weight=2,
+            popup=folium.Popup(
+                f"WLAN-Schaetzung<br>Scan: {row['scan_id']}"
+                f"<br>Fehler: {row['error_m']:.1f} m"
+                f"<br>AP-Treffer: {int(row['matched_access_points'])}"
+                f"<br>Residual-RMSE: {row['residual_rmse']:.1f} m",
+                max_width=240,
+            ),
+            tooltip=f"WLAN-Schaetzung {row['scan_id']}",
+        ).add_to(comparison_group)
+
+        line = folium.PolyLine(
+            locations=[
+                [row["actual_latitude"], row["actual_longitude"]],
+                [row["estimated_latitude"], row["estimated_longitude"]],
+            ],
+            color="#f97316",
+            weight=2,
+            opacity=0.65,
+            dash_array="6, 8",
+        )
+        line.add_to(comparison_group)
+        PolyLineTextPath(
+            line,
+            ">",
+            repeat=True,
+            offset=7,
+            attributes={"fill": "#f97316", "font-weight": "bold", "font-size": "12"},
+        ).add_to(comparison_group)
+
+    comparison_group.add_to(router_map)
+
+
 def fit_map_to_bounds(
     router_map: folium.Map,
     scan_summary: pd.DataFrame,
     access_points: pd.DataFrame,
     osm_bounds: dict[str, float],
+    route_comparison: pd.DataFrame | None = None,
 ) -> None:
     frames = []
     if {"latitude", "longitude"}.issubset(scan_summary.columns):
         frames.append(scan_summary.loc[:, ["latitude", "longitude"]].dropna())
     if {"latitude", "longitude"}.issubset(access_points.columns):
         frames.append(access_points.loc[:, ["latitude", "longitude"]].dropna())
+    if route_comparison is not None and not route_comparison.empty:
+        actual_positions = route_comparison.loc[:, ["actual_latitude", "actual_longitude"]].rename(
+            columns={"actual_latitude": "latitude", "actual_longitude": "longitude"}
+        )
+        estimated_positions = route_comparison.loc[:, ["estimated_latitude", "estimated_longitude"]].rename(
+            columns={"estimated_latitude": "latitude", "estimated_longitude": "longitude"}
+        )
+        frames.extend([actual_positions.dropna(), estimated_positions.dropna()])
 
     if frames:
         positions = pd.concat(frames, ignore_index=True)

@@ -1,5 +1,6 @@
 from src.fingerprint_localization import (
     estimate_position_from_fingerprint,
+    estimate_route_positions,
     get_scan_input_observations,
     parse_manual_wifi_input,
     run_leave_one_scan_out_benchmark,
@@ -69,3 +70,16 @@ def test_compatibility_wrapper_uses_triangulated_access_points(triangulation_raw
     assert estimate is not None
     assert estimate["matched_networks"] >= 3
     assert estimate["error_m"] is not None
+
+
+def test_estimate_route_positions_returns_comparison_rows(sample_raw_dataframe) -> None:
+    cleaned = clean_wifi_data(sample_raw_dataframe)
+    scan_summary = (
+        cleaned.groupby(["scan_id", "timestamp"], as_index=False)
+        .agg(latitude=("latitude", "first"), longitude=("longitude", "first"))
+    )
+
+    route_comparison = estimate_route_positions(cleaned, scan_summary, k=1)
+
+    assert "scan_id" in route_comparison.columns
+    assert "estimated_latitude" in route_comparison.columns

@@ -2,6 +2,19 @@
 
 Alle wichtigen Aenderungen am Projekt werden hier kurz protokolliert.
 
+## 2026-04-29
+
+- Streamlit-App in zwei Karten-Tabs getrennt: `Standort-Schaetzung` und
+  `GPS-vs-WLAN-Vergleich`.
+- Evaluationslogik in `src/evaluation.py` ausgelagert, damit Route-Comparison,
+  Fehlerkennzahlen und 60-m-Radiusfilter automatisch testbar sind.
+- Performance-Schutz erweitert: Radius- und AP-Layer werden bei einer
+  konkreten Schaetzung auf den relevanten 60-m-Umkreis begrenzt.
+- GitHub Action erweitert: Vor der gesamten Testsuite laeuft nun der schnelle
+  synthetische Pipeline-Smoke-Test.
+- Tests fuer Route-Comparison, Genauigkeitskennzahlen, Radiusfilter und
+  synthetische Lokalisierungsgenauigkeit ergaenzt.
+
 ## 2026-04-22
 
 - Pipeline in zwei Phasen getrennt: GPS nur noch fuer die Offline-Kalibrierung,
@@ -36,6 +49,7 @@ Alle wichtigen Aenderungen am Projekt werden hier kurz protokolliert.
 - App-Defaultansicht performant gemacht: `Alle / Alle` zeigt nur Messpunkte, Radius- und Overlap-Berechnung startet erst bei konkreter Auswahl.
 - erste Fingerprint-basierte Standortschätzung ergaenzt: Testscan oder manuelle `SSID,BSSID,RSSI`-Eingabe kann gegen Referenz-Scans gematcht werden.
 - Erklaerdatei `docs/professor_erklaerung.txt` mit den wichtigsten Punkten zu Daten, Code, Triangulation und Fingerprinting erstellt.
+- Routenvergleich in der App ergaenzt: GPS-Route als rote Linie, WLAN-Schaetzpunkte und Pfeile zwischen GPS- und WLAN-Position.
 
 ## 2026-03-31
 

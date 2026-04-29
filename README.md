@@ -69,6 +69,7 @@ Wichtige fachliche Idee:
 |  |- professor_erklaerung.txt
 |- src/
 |  |- __init__.py
+|  |- evaluation.py
 |  |- fingerprint_localization.py
 |  |- load_wifi_csv.py
 |  |- localization_logic.py
@@ -144,6 +145,19 @@ Die Browser-Anwendung zeigt:
 - Ueberlappungspunkte mehrerer Kreise desselben Netzwerks
 - einen GPS-freien Standort-Testrun ueber AP-Multilateration
 
+Die App ist in zwei Karten-Tabs aufgeteilt:
+
+- `Standort-Schaetzung`: zeigt den aktuell geschaetzten WLAN-Standort, die
+  passenden Access Points und optional Radiuskreise im relevanten Umfeld.
+- `GPS-vs-WLAN-Vergleich`: zeigt die aufgezeichnete GPS-Route, die
+  geschaetzten WLAN-Positionen und Verbindungslinien/Pfeile zwischen GPS und
+  WLAN-Schaetzung.
+
+Aus Performance-Gruenden werden Netzwerke, Access Points und Radiuskreise bei
+einer konkreten Standortschaetzung standardmaessig nur im Umkreis von 60 m um
+die Schaetzung angezeigt. So bleibt die Karte mit dem grossen Innenstadt-
+Datensatz fluessiger.
+
 Wichtig:
 
 - Die Laufzeitansicht nutzt keine Roh-GPS-Koordinaten aus der Eingabe.
@@ -171,6 +185,14 @@ Die App markiert danach:
 - den geschaetzten Standort
 - im Dev-Benchmark zusaetzlich den echten Referenzpunkt
 - die gematchten Access Points fuer die aktuelle Schaetzung
+
+Optional kann in der App `GPS-Route mit WLAN-Schaetzung vergleichen` aktiviert
+werden. Dann werden im zweiten Tab angezeigt:
+
+- die komplette GPS-Route als rote Linie
+- WLAN-geschaetzte Punkte fuer bekannte Scans
+- Pfeile zwischen GPS-Punkt und WLAN-Schaetzung
+- Fehlerkennzahlen wie mittlerer Fehler, Medianfehler und maximaler Fehler
 
 ## Uebungsdateien
 
@@ -227,8 +249,11 @@ GitHub Actions:
 
 - Bei jedem `push` und `pull request` startet automatisch der Workflow
   `.github/workflows/ci.yml`.
-- Dort werden die Abhaengigkeiten installiert und die `pytest`-Tests
-  ausgefuehrt.
+- Dort werden die Abhaengigkeiten installiert, ein schneller synthetischer
+  Pipeline-Smoke-Test ausgefuehrt und danach die `pytest`-Tests gestartet.
+- Die Tests pruefen Import, Bereinigung, Pipeline, AP-Triangulation,
+  Standort-Schaetzung, Route-Comparison, Radiusfilter und einfache
+  Genauigkeitskennzahlen.
 
 ## Kurze Erklaerung fuer Rueckfragen
 

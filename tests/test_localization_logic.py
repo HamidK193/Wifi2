@@ -76,3 +76,22 @@ def test_runtime_multilateration_works_without_runtime_gps(triangulation_raw_dat
     assert estimate["matched_networks"] >= 3
     assert estimate["confidence_score"] > 0
     assert len(observations.dropna(subset=["latitude", "longitude"])) > 0
+
+
+def test_runtime_multilateration_accuracy_on_synthetic_data(triangulation_raw_dataframe) -> None:
+    calibration_dataframe = clean_wifi_data(
+        triangulation_raw_dataframe,
+        require_coordinates=True,
+        include_coordinates=True,
+    )
+    runtime_dataframe = clean_wifi_data(
+        triangulation_raw_dataframe,
+        require_coordinates=False,
+        include_coordinates=False,
+    )
+
+    access_points = triangulate_access_points(calibration_dataframe)
+    scan_positions = triangulate_scan_positions(runtime_dataframe, access_points)
+
+    assert len(scan_positions) >= 3
+    assert scan_positions["residual_rmse"].median() < 35

@@ -34,8 +34,17 @@
 - Die App nutzt `map_innenstadt.osm` als fokussierten Innenstadt-Ausschnitt.
 - Die App berechnet in der Defaultansicht `Alle / Alle` keine Radiuskreise und
   keine Overlap-Punkte, damit sie mit dem grossen Datensatz sichtbar bleibt.
+- Die App hat zwei Karten-Tabs:
+  - `Standort-Schaetzung` fuer den aktuell geschaetzten WLAN-Standort
+  - `GPS-vs-WLAN-Vergleich` fuer GPS-Route, WLAN-Schaetzpunkte und
+    Verbindungslinien/Pfeile zur Fehlerbewertung
+- Sichtbare Netzwerke, APs und Radiuskreise werden bei einer konkreten
+  Standortschaetzung standardmaessig auf 60 m um die Schaetzung begrenzt.
+- `src/evaluation.py` enthaelt die testbare Logik fuer Route-Comparison,
+  Fehlerkennzahlen und Radiusfilter.
 - In `.github/workflows/ci.yml` ist ein GitHub-Action-Workflow fuer
-  automatische Tests angelegt.
+  automatische Tests angelegt. Die CI fuehrt zusaetzlich einen schnellen
+  synthetischen Pipeline-Smoke-Test aus.
 
 ### Bekannte Fakten zur CSV
 
@@ -56,6 +65,7 @@
 - Standort-Test ohne Roh-GPS im Hauptmodus betreiben
 - Dev-Benchmark fuer kontrollierte Vergleiche beibehalten
 - automatische Tests und GitHub Actions stabil betreiben
+- Genauigkeit und Funktionalitaet per `pytest` absichern
 - Projekt klein und kursgerecht halten
 
 ### Spaetere Erweiterungen

@@ -129,6 +129,43 @@ def estimate_position_from_fingerprint(
     return estimate
 
 
+def estimate_route_positions(
+    cleaned_dataframe: pd.DataFrame,
+    scan_summary: pd.DataFrame,
+    *,
+    k: int = 3,
+    min_matches: int = 1,
+) -> pd.DataFrame:
+    _ = k
+    rows: list[dict[str, object]] = []
+
+    for scan_id in scan_summary["scan_id"].tolist():
+        input_observations = get_scan_input_observations(cleaned_dataframe, scan_id)
+        estimate = estimate_position_from_fingerprint(
+            cleaned_dataframe,
+            input_observations,
+            exclude_scan_id=scan_id,
+            min_matches=min_matches,
+        )
+        if estimate is None:
+            continue
+
+        rows.append(
+            {
+                "scan_id": scan_id,
+                "actual_latitude": estimate["actual_latitude"],
+                "actual_longitude": estimate["actual_longitude"],
+                "estimated_latitude": estimate["latitude"],
+                "estimated_longitude": estimate["longitude"],
+                "matched_networks": estimate["matched_networks"],
+                "best_rmse": estimate.get("best_rmse", estimate.get("residual_rmse")),
+                "error_m": estimate["error_m"],
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
 def get_scan_position(cleaned_dataframe: pd.DataFrame, scan_id: str) -> dict[str, float] | None:
     if not {"latitude", "longitude"}.issubset(cleaned_dataframe.columns):
         return None
