@@ -33,8 +33,12 @@ Wichtige fachliche Idee:
 - `app.py` startet die interaktive Browser-Anwendung auf Basis von
   `data/processed/`.
 - Die App enthaelt:
-  - einen GPS-freien Standort-Test ueber manuelle `SSID,BSSID,RSSI`-Eingabe
-  - einen getrennten Dev-Benchmark mit GPS-Referenz fuer Leave-one-scan-out
+  - einen einfachen GPS-freien Standort-Test ueber `SSID,BSSID,RSSI`
+  - einen eigenen Tab `Router-Schaetzung` fuer Messkreise und geschaetzte
+    Router-/Access-Point-Standorte
+  - einen Tab `Laufweg-Vergleich` fuer GPS-Route gegen WLAN-geschaetzte Route
+  - tolerantes Matching fuer aehnliche SSID- und BSSID-Schreibweisen
+  - Snapping der Schaetzung auf die naechste begehbare Strasse oder Fussweg
 - `pytest` und GitHub Actions pruefen die wichtigsten Kernfunktionen automatisch.
 - Fuer Task 1 und Task 2 liegen jeweils vier unterschiedliche kleine
   Loesungsdateien im Projekt.
@@ -64,6 +68,7 @@ Wichtige fachliche Idee:
 |  |  |- network_summary.csv
 |  |  |- triangulated_access_points.csv
 |  |  |- triangulated_scan_positions.csv
+|  |  |- route_comparison.csv
 |  |  |- dataset_summary.txt
 |- docs/
 |  |- professor_erklaerung.txt
@@ -75,7 +80,9 @@ Wichtige fachliche Idee:
 |  |- localization_logic.py
 |  |- preprocess_wifi_data.py
 |  |- project_pipeline.py
+|  |- road_constraints.py
 |  |- visualize_wifi_data.py
+|  |- wifi_input_matching.py
 |- tests/
 |- .github/
 |  |- workflows/
@@ -132,67 +139,98 @@ Nach `py main.py` werden diese Dateien erzeugt:
 - `network_summary.csv`
 - `triangulated_access_points.csv`
 - `triangulated_scan_positions.csv`
+- `route_comparison.csv`
 - `dataset_summary.txt`
 
 ## Browser-Anwendung
 
-Die Browser-Anwendung zeigt:
+Die Browser-Anwendung ist bewusst einfach gehalten:
 
-- den lokalen OSM-Export `map_innenstadt.osm` als Kartenbasis
-- triangulierte Scan-Punkte
-- triangulierte Access-Point-Positionen
-- fuer ein ausgewaehltes Netzwerk die moeglichen Radiuskreise
-- Ueberlappungspunkte mehrerer Kreise desselben Netzwerks
-- einen GPS-freien Standort-Testrun ueber AP-Multilateration
+- WLAN-Werte im Format `SSID,BSSID,RSSI` eingeben
+- auf `Standort schaetzen` klicken
+- geschaetzten Standort auf der Karte sehen
+- Ergebnis liegt auf der naechsten begehbaren Strasse oder einem Fussweg
+- technische Details sind nur in einem ausklappbaren Bereich sichtbar
 
-Die App ist in zwei Karten-Tabs aufgeteilt:
+Die App zeigt keine Analysefilter fuer Messpunkte, triangulierte Scan-Punkte,
+Access-Point-Layer, Radiuskreise oder Kreisueberlappungen mehr. Diese Daten
+bleiben intern wichtig fuer Kalibrierung und Tests, werden aber nicht mehr als
+Hauptbedienung angeboten.
 
-- `Standort-Schaetzung`: zeigt den aktuell geschaetzten WLAN-Standort, die
-  passenden Access Points und optional Radiuskreise im relevanten Umfeld.
-- `GPS-vs-WLAN-Vergleich`: zeigt die aufgezeichnete GPS-Route, die
-  geschaetzten WLAN-Positionen und Verbindungslinien/Pfeile zwischen GPS und
-  WLAN-Schaetzung.
+Ausnahme:
 
-Aus Performance-Gruenden werden Netzwerke, Access Points und Radiuskreise bei
-einer konkreten Standortschaetzung standardmaessig nur im Umkreis von 60 m um
-die Schaetzung angezeigt. So bleibt die Karte mit dem grossen Innenstadt-
-Datensatz fluessiger.
+- Im Tab `Router-Schaetzung` werden diese Messkreise bewusst wieder sichtbar,
+  weil dort das Professor-Prinzip demonstriert wird: mehrere RSSI-Kreise
+  desselben `SSID+BSSID`-Netzwerks ergeben einen geschaetzten Routerstandort.
 
 Wichtig:
 
 - Die Laufzeitansicht nutzt keine Roh-GPS-Koordinaten aus der Eingabe.
 - GPS wird nur in `main.py` fuer die Offline-Kalibrierung der Access Points
   verwendet.
-- Die Kreise beschreiben moegliche Distanzbereiche eines Scans zu einem
-  Netzwerk.
 - Die finale Standortschaetzung im Hauptmodus kommt aus geometrischer
   Multilateration gegen triangulierte Access Points.
+- Die angezeigte Position wird anschliessend auf einen begehbaren OSM-Weg
+  projiziert, weil die Person realistisch auf Strassen oder Fusswegen laeuft.
 
 ## Standort-Test in der App
 
-In der linken Seitenleiste gibt es den Bereich `Standort-Test`.
+In der linken Seitenleiste gibt es nur noch:
 
-Moeglichkeiten:
+- Textfeld fuer WLAN-Werte
+- Regler fuer minimale AP-Treffer
+- Button `Standort schaetzen`
 
-- `Manuelle Eingabe`: WLAN-Werte koennen zeilenweise als `SSID,BSSID,RSSI`
-  eingegeben werden. Die Positionsschaetzung laeuft dann GPS-frei gegen
-  `triangulated_access_points.csv`.
-- `Dev-Benchmark`: Ein vorhandener GPS-Scan wird nur fuer die Entwicklung per
-  Leave-one-scan-out getestet und danach mit seiner GPS-Referenz verglichen.
+Die Eingabe darf leicht von den Kalibrierungsdaten abweichen:
 
-Die App markiert danach:
+- BSSID/MAC darf mit `:`, `-`, Gross- oder Kleinschreibung eingegeben werden
+- SSID darf kleine Schreib- oder Leerzeichenabweichungen haben
+- RSSI ist der aktuelle Messwert und muss nicht exakt einem alten Wert
+  entsprechen
 
-- den geschaetzten Standort
-- im Dev-Benchmark zusaetzlich den echten Referenzpunkt
-- die gematchten Access Points fuer die aktuelle Schaetzung
+## Router-Schaetzung in der App
 
-Optional kann in der App `GPS-Route mit WLAN-Schaetzung vergleichen` aktiviert
-werden. Dann werden im zweiten Tab angezeigt:
+Der Tab `Router-Schaetzung` zeigt, wie Access-Point-/Routerstandorte aus den
+Kalibrierungsdaten geschaetzt werden:
 
-- die komplette GPS-Route als rote Linie
-- WLAN-geschaetzte Punkte fuer bekannte Scans
-- Pfeile zwischen GPS-Punkt und WLAN-Schaetzung
-- Fehlerkennzahlen wie mittlerer Fehler, Medianfehler und maximaler Fehler
+- nach `SSID` und `BSSID / Router` filtern
+- Messpunkte des gewaehlten Netzwerks sehen
+- RSSI-Radiuskreise um die Messpunkte sehen
+- geschaetzten Routerstandort sehen, sobald mindestens 3 Scanpunkte vorhanden
+  sind
+- bei weniger als 3 Scanpunkten eine einfache Fallback-Schaetzung sehen:
+  Schnitt-/Zwischenpunkt bei 2 Kreisen oder Feder-/Gewichtungslogik bei
+  unsicheren Kreisen
+- Schnitt-/Ueberlappungspunkte werden nur bei mindestens 3 stuetzenden Kreisen
+  als relevant angezeigt
+
+Wichtig:
+
+- Routerstandorte werden nicht auf Strassen gesnappt.
+- Router duerfen logisch in Gebaeuden liegen.
+- Die Kreisfarben richten sich nach der SSID.
+- Die eindeutige technische Einheit bleibt trotzdem `SSID + BSSID`.
+
+## Laufweg-Vergleich in der App
+
+Der Tab `Laufweg-Vergleich` zeigt zwei Routen:
+
+- rote Linie: echter GPS-Laufweg aus den Kalibrierungsdaten
+- blaue Linie: WLAN-geschaetzter Laufweg
+- orange Linien: Abweichung zwischen GPS-Punkt und WLAN-Schaetzung
+- Pfeile auf den Linien zeigen die Laufrichtung
+
+Die WLAN-Route wird mit einer einfachen Feder-/Kreislogik berechnet:
+
+- starke Signale ziehen die Schaetzung staerker zu einem Access Point
+- schwache Signale ziehen weniger stark
+- ab mehreren APs wird der Punkt gesucht, der am besten zu den RSSI-Radien
+  passt
+- die resultierende Nutzerposition wird danach auf Strasse/Fussweg gesnappt
+
+Der Laufweg-Vergleich wird nicht bei jedem App-Start neu berechnet. `main.py`
+erzeugt die Datei `data/processed/route_comparison.csv`; die App laedt danach
+nur noch diese gespeicherten Daten.
 
 ## Uebungsdateien
 
@@ -252,8 +290,8 @@ GitHub Actions:
 - Dort werden die Abhaengigkeiten installiert, ein schneller synthetischer
   Pipeline-Smoke-Test ausgefuehrt und danach die `pytest`-Tests gestartet.
 - Die Tests pruefen Import, Bereinigung, Pipeline, AP-Triangulation,
-  Standort-Schaetzung, Route-Comparison, Radiusfilter und einfache
-  Genauigkeitskennzahlen.
+  Standort-Schaetzung, tolerantes WLAN-Matching, Strassen-Snapping,
+  Route-Comparison, Radiusfilter und einfache Genauigkeitskennzahlen.
 
 ## Kurze Erklaerung fuer Rueckfragen
 

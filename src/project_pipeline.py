@@ -21,6 +21,8 @@ from src.preprocess_wifi_data import (
     save_scan_summary,
     summarize_dataset,
 )
+from src.route_estimation import ROUTE_ESTIMATE_COLUMNS, build_wifi_route_from_scan_positions, save_route_estimates
+from src.visualize_wifi_data import load_osm_map
 
 RUNTIME_FILE_NAMES = {
     "cleaned_dataframe": "wifi_scans_clean.csv",
@@ -29,11 +31,16 @@ RUNTIME_FILE_NAMES = {
     "network_summary": "network_summary.csv",
     "access_points": "triangulated_access_points.csv",
     "scan_positions": "triangulated_scan_positions.csv",
+    "route_comparison": "route_comparison.csv",
     "dataset_summary": "dataset_summary.txt",
 }
 
 
-def run_data_pipeline(raw_csv_path: str | Path, processed_dir: str | Path) -> dict[str, object]:
+def run_data_pipeline(
+    raw_csv_path: str | Path,
+    processed_dir: str | Path,
+    osm_path: str | Path | None = None,
+) -> dict[str, object]:
     raw_path = Path(raw_csv_path)
     output_dir = Path(processed_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -60,6 +67,14 @@ def run_data_pipeline(raw_csv_path: str | Path, processed_dir: str | Path) -> di
     scan_summary = create_scan_summary(runtime_dataframe, scan_positions)
     network_observations = create_network_observations(runtime_dataframe, scan_positions)
     network_summary = create_network_summary(network_observations)
+    route_comparison = pd.DataFrame(columns=ROUTE_ESTIMATE_COLUMNS)
+    if osm_path is not None and Path(osm_path).exists():
+        route_comparison = build_wifi_route_from_scan_positions(
+            calibration_dataframe,
+            scan_positions,
+            load_osm_map(osm_path),
+            min_matches=2,
+        )
     dataset_summary = summarize_dataset(runtime_dataframe, scan_summary)
 
     clean_path = save_cleaned_data(runtime_dataframe, output_dir / RUNTIME_FILE_NAMES["cleaned_dataframe"])
@@ -80,6 +95,10 @@ def run_data_pipeline(raw_csv_path: str | Path, processed_dir: str | Path) -> di
         scan_positions,
         output_dir / RUNTIME_FILE_NAMES["scan_positions"],
     )
+    route_comparison_path = save_route_estimates(
+        route_comparison,
+        output_dir / RUNTIME_FILE_NAMES["route_comparison"],
+    )
     summary_path = save_dataset_summary(dataset_summary, output_dir / RUNTIME_FILE_NAMES["dataset_summary"])
 
     return {
@@ -91,6 +110,7 @@ def run_data_pipeline(raw_csv_path: str | Path, processed_dir: str | Path) -> di
         "network_summary": network_summary,
         "access_points": access_points,
         "scan_positions": scan_positions,
+        "route_comparison": route_comparison,
         "dataset_summary": dataset_summary,
         "output_paths": [
             clean_path,
@@ -99,6 +119,7 @@ def run_data_pipeline(raw_csv_path: str | Path, processed_dir: str | Path) -> di
             network_summary_path,
             access_point_path,
             scan_position_path,
+            route_comparison_path,
             summary_path,
         ],
     }
@@ -121,6 +142,11 @@ def load_runtime_data(processed_dir: str | Path) -> dict[str, object]:
     network_summary = pd.read_csv(base_dir / RUNTIME_FILE_NAMES["network_summary"])
     access_points = pd.read_csv(base_dir / RUNTIME_FILE_NAMES["access_points"])
     scan_positions = pd.read_csv(base_dir / RUNTIME_FILE_NAMES["scan_positions"], parse_dates=["timestamp"])
+    route_comparison_path = base_dir / RUNTIME_FILE_NAMES["route_comparison"]
+    if route_comparison_path.exists():
+        route_comparison = pd.read_csv(route_comparison_path, parse_dates=["timestamp"])
+    else:
+        route_comparison = pd.DataFrame()
     dataset_summary = load_dataset_summary(base_dir / RUNTIME_FILE_NAMES["dataset_summary"])
 
     return {
@@ -130,6 +156,7 @@ def load_runtime_data(processed_dir: str | Path) -> dict[str, object]:
         "network_summary": network_summary,
         "access_points": access_points,
         "scan_positions": scan_positions,
+        "route_comparison": route_comparison,
         "dataset_summary": dataset_summary,
     }
 

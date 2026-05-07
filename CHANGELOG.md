@@ -2,6 +2,41 @@
 
 Alle wichtigen Aenderungen am Projekt werden hier kurz protokolliert.
 
+## 2026-05-07
+
+- neuen Tab `Laufweg-Vergleich` ergaenzt: reale GPS-Route als rote Linie,
+  WLAN-geschaetzte Route als blaue Linie und orange Abweichungslinien mit
+  Richtungspfeilen.
+- `route_comparison.csv` als gespeichertes Runtime-Artefakt ergaenzt, damit
+  der Laufweg-Vergleich nicht bei jedem App-Start neu berechnet wird.
+- Feder-/Fallback-Logik fuer wenige Kreise ergaenzt: bei 2 Kreisen wird ein
+  Schnitt-/Zwischenpunkt genutzt, bei unsicheren Kreisen eine gewichtete
+  Feder-Schaetzung.
+- Standort-Schaetzung kann nun auch mit weniger als 3 Treffern eine schwache
+  Fallback-Schaetzung liefern, wenn der Nutzer die Mindesttreffer entsprechend
+  niedrig setzt.
+- Tests fuer WLAN-Laufweg und Fallback-Schaetzung ergaenzt.
+- neuen App-Tab `Router-Schaetzung` ergaenzt: SSID/BSSID filtern,
+  Messpunkte, RSSI-Kreisradien, Ueberlappung und geschaetzten Routerstandort
+  anzeigen.
+- Router-Schaetzung nutzt mindestens 3 Scanpunkte derselben `SSID+BSSID`-
+  Einheit und snappt Router nicht auf Strassen, da Router auch in Gebaeuden
+  liegen koennen.
+- Overlap-Logik erweitert: Ueberlappungspunkte koennen jetzt explizit
+  mindestens 3 stuetzende Kreise verlangen.
+- Tests fuer Router-Schaetzung, Mindestanzahl an Scanpunkten und
+  3-Kreis-Ueberlappung ergaenzt.
+- App auf eine einfache Standort-Demo reduziert: WLAN-Werte eingeben,
+  `Standort schaetzen`, Ergebnis auf Karte sehen.
+- Analysefilter fuer SSID, BSSID, Messpunkte, triangulierte Punkte, AP-Layer,
+  Radiuskreise und Kreisueberlappungen aus der Hauptbedienung entfernt.
+- Tolerantes WLAN-Matching ergaenzt: BSSID-Format wird normalisiert, SSID darf
+  leichte Schreib- oder Leerzeichenabweichungen haben.
+- Strassen-Snapping ergaenzt: die geschaetzte Position wird auf den naechsten
+  begehbaren OSM-Weg gesetzt.
+- Tests fuer Matching, Strassen-Snapping und den einfachen Standortfluss
+  ergaenzt.
+
 ## 2026-04-29
 
 - Streamlit-App in zwei Karten-Tabs getrennt: `Standort-Schaetzung` und

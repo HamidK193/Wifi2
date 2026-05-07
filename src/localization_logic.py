@@ -138,6 +138,7 @@ def triangulate_access_points(
                 "max_radius_m": float(network_rows["estimated_radius_m"].max()),
                 "rmse_m": float(best_point["rmse_m"]),
                 "quality_flag": quality_flag,
+                "method": "circle_residual",
             }
         )
 
@@ -151,6 +152,78 @@ def triangulate_access_points(
         .sort_values(["quality_flag", "scan_count", "rmse_m", "network_id"], ascending=[True, False, True, True])
         .reset_index(drop=True)
     )
+
+
+def estimate_router_position_from_observations(
+    network_observations: pd.DataFrame,
+    *,
+    min_scans: int = MIN_TRIANGULATION_SCANS,
+) -> dict[str, object] | None:
+    valid_observations = network_observations.dropna(
+        subset=["latitude", "longitude", "estimated_radius_m"]
+    ).copy()
+    if valid_observations.empty:
+        return None
+
+    scan_count = int(valid_observations["scan_id"].nunique())
+    best_point = estimate_point_from_circles_with_fallback(valid_observations)
+    if best_point is None:
+        return None
+
+    first_row = valid_observations.iloc[0]
+    quality_flag = (
+        _classify_quality(scan_count, best_point["rmse_m"])
+        if scan_count >= min_scans
+        else "fallback"
+    )
+    return {
+        "network_id": first_row["network_id"],
+        "ssid": first_row["ssid"],
+        "bssid": first_row["bssid"],
+        "latitude": float(best_point["latitude"]),
+        "longitude": float(best_point["longitude"]),
+        "scan_count": scan_count,
+        "total_observations": int(valid_observations["observation_count"].sum()),
+        "mean_rssi": float(valid_observations["mean_rssi"].mean()),
+        "min_radius_m": float(valid_observations["estimated_radius_m"].min()),
+        "max_radius_m": float(valid_observations["estimated_radius_m"].max()),
+        "rmse_m": float(best_point["rmse_m"]),
+        "quality_flag": quality_flag,
+        "method": best_point["method"],
+    }
+
+
+def estimate_point_from_circles_with_fallback(
+    observations: pd.DataFrame,
+    *,
+    latitude_column: str = "latitude",
+    longitude_column: str = "longitude",
+    radius_column: str = "estimated_radius_m",
+) -> dict[str, float | str] | None:
+    valid = observations.dropna(subset=[latitude_column, longitude_column, radius_column]).copy()
+    if valid.empty:
+        return None
+
+    if len(valid) >= MIN_TRIANGULATION_SCANS:
+        best_point = _estimate_point_from_circles(
+            valid,
+            latitude_column=latitude_column,
+            longitude_column=longitude_column,
+            radius_column=radius_column,
+        )
+        if best_point is None:
+            return None
+        return {**best_point, "method": "circle_residual"}
+
+    fallback_point = _estimate_fallback_point_for_few_circles(
+        valid,
+        latitude_column=latitude_column,
+        longitude_column=longitude_column,
+        radius_column=radius_column,
+    )
+    if fallback_point is None:
+        return None
+    return fallback_point
 
 
 def triangulate_scan_positions(
@@ -225,7 +298,7 @@ def estimate_position_from_access_points(
 
     merged = merged.copy()
     merged["estimated_radius_m"] = merged["rssi"].apply(estimate_radius_from_rssi)
-    best_point = _estimate_point_from_circles(merged)
+    best_point = estimate_point_from_circles_with_fallback(merged)
     if best_point is None:
         return None
 
@@ -254,6 +327,7 @@ def estimate_position_from_access_points(
         "matched_networks": int(len(merged)),
         "residual_rmse": float(best_point["rmse_m"]),
         "confidence_score": confidence_score,
+        "method": best_point["method"],
         "matched_access_points": matched_access_points,
         "actual_latitude": None,
         "actual_longitude": None,
@@ -271,9 +345,10 @@ def filter_network_observations(
 def estimate_overlap_points(
     network_observations: pd.DataFrame,
     step_m: float = 2.5,
+    min_support: int = 2,
 ) -> pd.DataFrame:
     valid_observations = network_observations.dropna(subset=["latitude", "longitude"]).copy()
-    if len(valid_observations) < 2:
+    if len(valid_observations) < min_support:
         return pd.DataFrame(columns=["latitude", "longitude", "support_count"])
 
     mean_lat = float(valid_observations["latitude"].mean())
@@ -303,7 +378,7 @@ def estimate_overlap_points(
         longitude = min_lon
         while longitude <= max_lon:
             support_count = count_covering_circles(latitude, longitude, valid_observations, mean_lat)
-            if support_count >= 2:
+            if support_count >= min_support:
                 if support_count > max_support:
                     overlap_points = []
                     max_support = support_count
@@ -341,6 +416,142 @@ def count_covering_circles(
             support_count += 1
 
     return support_count
+
+
+def _estimate_fallback_point_for_few_circles(
+    observations: pd.DataFrame,
+    *,
+    latitude_column: str,
+    longitude_column: str,
+    radius_column: str,
+) -> dict[str, float | str] | None:
+    if observations.empty:
+        return None
+
+    if len(observations) == 1:
+        row = observations.iloc[0]
+        latitude = float(row[latitude_column])
+        longitude = float(row[longitude_column])
+        return {
+            "latitude": latitude,
+            "longitude": longitude,
+            "rmse_m": _circle_residual_rmse(
+                latitude,
+                longitude,
+                observations,
+                latitude_column=latitude_column,
+                longitude_column=longitude_column,
+                radius_column=radius_column,
+            ),
+            "method": "single_circle_center",
+        }
+
+    if len(observations) == 2:
+        two_circle_point = _estimate_two_circle_point(
+            observations,
+            latitude_column=latitude_column,
+            longitude_column=longitude_column,
+            radius_column=radius_column,
+        )
+        if two_circle_point is not None:
+            return two_circle_point
+
+    centroid_latitude, centroid_longitude = _weighted_centroid(
+        observations,
+        latitude_column=latitude_column,
+        longitude_column=longitude_column,
+        radius_column=radius_column,
+    )
+    return {
+        "latitude": centroid_latitude,
+        "longitude": centroid_longitude,
+        "rmse_m": _circle_residual_rmse(
+            centroid_latitude,
+            centroid_longitude,
+            observations,
+            latitude_column=latitude_column,
+            longitude_column=longitude_column,
+            radius_column=radius_column,
+        ),
+        "method": "spring_weighted_centroid",
+    }
+
+
+def _estimate_two_circle_point(
+    observations: pd.DataFrame,
+    *,
+    latitude_column: str,
+    longitude_column: str,
+    radius_column: str,
+) -> dict[str, float | str] | None:
+    first = observations.iloc[0]
+    second = observations.iloc[1]
+    mean_latitude = float(observations[latitude_column].mean())
+    lon_scale = LAT_METERS * max(0.1, math.cos(math.radians(mean_latitude)))
+
+    x1 = float(first[longitude_column]) * lon_scale
+    y1 = float(first[latitude_column]) * LAT_METERS
+    x2 = float(second[longitude_column]) * lon_scale
+    y2 = float(second[latitude_column]) * LAT_METERS
+    r1 = float(first[radius_column])
+    r2 = float(second[radius_column])
+
+    dx = x2 - x1
+    dy = y2 - y1
+    distance = math.sqrt(dx**2 + dy**2)
+    if distance == 0:
+        return None
+
+    ux = dx / distance
+    uy = dy / distance
+
+    if abs(r1 - r2) <= distance <= r1 + r2:
+        offset_from_first = (r1**2 - r2**2 + distance**2) / (2 * distance)
+        method = "two_circle_intersection_midpoint"
+    elif distance > r1 + r2:
+        gap = distance - r1 - r2
+        offset_from_first = r1 + (gap / 2)
+        method = "two_circle_gap_midpoint"
+    else:
+        # One circle contains the other. Use a spring-like point between the
+        # two scan positions, pulled more strongly by the smaller radius.
+        weight1 = 1 / max(r1, 1)
+        weight2 = 1 / max(r2, 1)
+        x = (x1 * weight1 + x2 * weight2) / (weight1 + weight2)
+        y = (y1 * weight1 + y2 * weight2) / (weight1 + weight2)
+        latitude = y / LAT_METERS
+        longitude = x / lon_scale
+        return {
+            "latitude": latitude,
+            "longitude": longitude,
+            "rmse_m": _circle_residual_rmse(
+                latitude,
+                longitude,
+                observations,
+                latitude_column=latitude_column,
+                longitude_column=longitude_column,
+                radius_column=radius_column,
+            ),
+            "method": "two_circle_spring_weighted",
+        }
+
+    x = x1 + offset_from_first * ux
+    y = y1 + offset_from_first * uy
+    latitude = y / LAT_METERS
+    longitude = x / lon_scale
+    return {
+        "latitude": latitude,
+        "longitude": longitude,
+        "rmse_m": _circle_residual_rmse(
+            latitude,
+            longitude,
+            observations,
+            latitude_column=latitude_column,
+            longitude_column=longitude_column,
+            radius_column=radius_column,
+        ),
+        "method": method,
+    }
 
 
 def calculate_distance_m(
@@ -588,6 +799,7 @@ def _access_point_columns() -> list[str]:
         "max_radius_m",
         "rmse_m",
         "quality_flag",
+        "method",
     ]
 
 

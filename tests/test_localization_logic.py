@@ -2,8 +2,10 @@ from src.localization_logic import (
     build_network_id,
     create_network_observations,
     create_network_summary,
+    estimate_overlap_points,
     estimate_position_from_access_points,
     estimate_radius_from_rssi,
+    estimate_router_position_from_observations,
     triangulate_access_points,
     triangulate_scan_positions,
 )
@@ -48,6 +50,44 @@ def test_triangulate_access_points_returns_quality_metrics(triangulation_raw_dat
     assert len(access_points) == 3
     assert set(access_points["quality_flag"]).issubset({"good", "usable", "weak"})
     assert (access_points["scan_count"] >= 3).all()
+
+
+def test_router_position_requires_at_least_three_scan_points(triangulation_raw_dataframe) -> None:
+    calibration_dataframe = clean_wifi_data(
+        triangulation_raw_dataframe,
+        require_coordinates=True,
+        include_coordinates=True,
+    )
+    observations = create_network_observations(calibration_dataframe)
+    alpha_observations = observations.loc[
+        observations["network_id"] == "Alpha | aa:aa:aa:aa:aa:01"
+    ].copy()
+
+    estimate = estimate_router_position_from_observations(alpha_observations)
+    fallback_estimate = estimate_router_position_from_observations(alpha_observations.head(2))
+
+    assert estimate is not None
+    assert estimate["scan_count"] >= 3
+    assert estimate["ssid"] == "Alpha"
+    assert fallback_estimate is not None
+    assert fallback_estimate["quality_flag"] == "fallback"
+
+
+def test_overlap_points_can_require_three_supporting_circles(triangulation_raw_dataframe) -> None:
+    calibration_dataframe = clean_wifi_data(
+        triangulation_raw_dataframe,
+        require_coordinates=True,
+        include_coordinates=True,
+    )
+    observations = create_network_observations(calibration_dataframe)
+    alpha_observations = observations.loc[
+        observations["network_id"] == "Alpha | aa:aa:aa:aa:aa:01"
+    ].copy()
+
+    overlap_points = estimate_overlap_points(alpha_observations, step_m=8, min_support=3)
+
+    assert not overlap_points.empty
+    assert (overlap_points["support_count"] >= 3).all()
 
 
 def test_runtime_multilateration_works_without_runtime_gps(triangulation_raw_dataframe) -> None:

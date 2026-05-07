@@ -3,6 +3,7 @@ from pathlib import Path
 from src.project_pipeline import run_data_pipeline
 
 RAW_CSV_PATH = Path("data/raw/WigleWifi_20260408161721.csv")
+RAW_OSM_PATH = Path("data/raw/map_innenstadt.osm")
 PROCESSED_DIR = Path("data/processed")
 
 
@@ -12,7 +13,8 @@ def main() -> None:
         print("Lege die Datei in data/raw/ ab und starte das Skript erneut.")
         return
 
-    pipeline_data = run_data_pipeline(RAW_CSV_PATH, PROCESSED_DIR)
+    osm_path = RAW_OSM_PATH if RAW_OSM_PATH.exists() else None
+    pipeline_data = run_data_pipeline(RAW_CSV_PATH, PROCESSED_DIR, osm_path)
     csv_info = pipeline_data["csv_info"]
     dataset_summary = pipeline_data["dataset_summary"]
     output_paths = pipeline_data["output_paths"]

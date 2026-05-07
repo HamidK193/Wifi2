@@ -102,8 +102,45 @@ Zusatz:
   ueberhaupt trianguliert.
 - Pro AP speichern wir auch Qualitaetswerte wie Scan-Anzahl und RMSE.
 
+Wenn weniger als 3 Scanpunkte vorhanden sind, kann die App trotzdem eine
+schwache Fallback-Schaetzung zeigen:
 
-6. GPS-freier Endtest
+- bei 2 Kreisen wird, wenn moeglich, der Schnitt-/Zwischenpunkt verwendet
+- bei nicht beruehrenden oder unsicheren Kreisen wird eine gewichtete
+  Feder-Schaetzung genutzt
+- bei 1 Kreis ist nur eine sehr schwache Orientierung moeglich
+
+Diese Faelle sind fachlich unsicherer und werden deshalb als `fallback`
+markiert.
+
+
+6. Router-Schaetzung in der App
+-------------------------------
+
+Die App hat einen eigenen Tab `Router-Schaetzung`.
+
+Dort wird das Kreisprinzip sichtbar gemacht:
+
+1. Ein Messpunkt ist der GPS-Punkt des Handys waehrend der Kalibrierung.
+2. Aus dem RSSI-Wert wird ein Radius abgeschaetzt.
+3. Um den Messpunkt wird ein Kreis gezeichnet.
+4. Mehrere Kreise derselben `SSID+BSSID`-Einheit werden zusammengefuehrt.
+5. Ab mindestens 3 unterschiedlichen Scanpunkten wird ein stabilerer
+   Routerstandort geschaetzt.
+
+Der geschaetzte Routerstandort ist der Punkt, der am besten zu allen Kreisen
+passt. Zusaetzlich koennen Ueberlappungspunkte angezeigt werden, aber nur wenn
+mindestens 3 Kreise diesen Bereich stuetzen.
+
+Bei weniger als 3 Scanpunkten ist es nur eine Fallback-Schaetzung. Dann wird
+bei 2 Kreisen ein Schnitt-/Zwischenpunkt genutzt oder, falls die Kreise nicht
+sauber passen, eine einfache Federlogik.
+
+Wichtig: Routerstandorte werden nicht auf Strassen oder Fusswege gesnappt.
+Access Points koennen realistisch in Gebaeuden liegen.
+
+
+7. GPS-freier Endtest
 ---------------------
 
 Im Hauptmodus der App braucht der Standort-Test nur noch:
@@ -118,19 +155,28 @@ RSP,e0:91:f5:c4:df:91,-78
 
 Ablauf:
 
-1. Eingabe in `network_id + RSSI` umwandeln.
+1. Eingabe tolerant mit bekannten Access Points matchen.
 2. Passende triangulierte Access Points aus `data/processed` laden.
 3. Aus jedem RSSI wieder einen Distanzradius abschaetzen.
 4. Den Punkt suchen, der am besten zu allen Kreisen passt.
-5. Diesen Punkt als geschaetzten Standort auf der Karte markieren.
+5. Diesen Punkt auf die naechste begehbare OSM-Strasse oder einen Fussweg
+   setzen.
+6. Den gesnappten Punkt als Standort auf der Karte markieren.
 
 Im normalen Endtest wird dafuer kein Roh-GPS mehr verwendet.
 
+Die Eingabe muss nicht exakt gleich wie in den alten Messdaten geschrieben
+sein:
 
-7. Dev-Benchmark
-----------------
+- BSSID/MAC wird normalisiert, z. B. `AA-BB` und `aa:bb`
+- SSID darf kleine Schreib- oder Leerzeichenabweichungen haben
+- RSSI ist der neue aktuelle Messwert
 
-Es gibt zusaetzlich einen getrennten Entwickler-Modus:
+
+8. Interne Tests und Benchmarks
+-------------------------------
+
+Im Code gibt es weiterhin interne Test- und Benchmark-Funktionen:
 
 - Ein vorhandener Scan wird ausgewaehlt.
 - Dieser Scan wird aus der Kalibrierung ausgeschlossen.
@@ -138,32 +184,53 @@ Es gibt zusaetzlich einen getrennten Entwickler-Modus:
 - Anschliessend wird der ausgeschlossene Scan rein ueber WLAN erneut lokalisiert.
 - Erst am Ende wird der Fehler gegen seine echte GPS-Position berechnet.
 
-Das ist kein normaler Endnutzer-Modus, sondern ein technischer Benchmark.
+Das ist kein normaler Endnutzer-Modus und wird nicht mehr als Hauptbedienung
+in der App gezeigt. Es dient nur fuer Tests und Entwicklung.
 
 
-8. Browser-App
+9. Browser-App
 --------------
 
 Die App wird gestartet mit:
 
 py -m streamlit run app.py
 
-Sie zeigt zwei getrennte Kartenansichten:
+Die aktuelle App ist bewusst einfach gehalten:
 
-1. Standort-Schaetzung
-   Diese Ansicht zeigt den aktuell geschaetzten WLAN-Standort, triangulierte
-   Access Points und bei Bedarf Radiuskreise.
+1. Tab `Standort-Test`: WLAN-Werte als `SSID,BSSID,RSSI` eingeben und
+   Nutzerstandort schaetzen.
+2. Tab `Router-Schaetzung`: SSID/BSSID filtern und das Kreisprinzip fuer
+   Routerstandorte nachvollziehen.
+3. Tab `Laufweg-Vergleich`: echte GPS-Route mit der WLAN-geschaetzten Route
+   vergleichen.
 
-2. GPS-vs-WLAN-Vergleich
-   Diese Ansicht zeigt die echte GPS-Route als Linie, die geschaetzten
-   WLAN-Positionen und Verbindungslinien zwischen beiden Punkten.
+Messpunkte, triangulierte Scan-Punkte, AP-Layer, Radiuskreise und
+Kreisueberlappungen sind nicht mehr als UI-Filter sichtbar. Sie bleiben intern
+wichtig fuer Kalibrierung und Tests, aber die Professor-Demo zeigt nur den
+Endnutzerfall.
 
-Damit kann man sehen, wie weit die WLAN-Schaetzung vom echten GPS-Punkt
-abweicht. Aus Performance-Gruenden werden Netzwerke und Radiuskreise bei einer
-konkreten Schaetzung nur im relevanten 60-m-Umkreis angezeigt.
+Wichtig: Die finale Position wird auf OSM-Strassen oder Fusswege gesetzt, weil
+die Person realistisch draussen auf begehbaren Wegen laeuft und nicht in
+Gebaeuden. Diese Regel gilt nur fuer den Nutzerstandort, nicht fuer
+Routerstandorte.
+
+Im Laufweg-Vergleich gilt:
+
+- rote Linie: echter GPS-Laufweg
+- blaue Linie: WLAN-Laufweg aus der Feder-/Kreislogik
+- orange Linien: Fehler/Abweichung zwischen GPS und WLAN
+- Pfeile: Laufrichtung
+
+Die WLAN-Punkte werden nach der Schaetzung wieder auf begehbare Wege gesnappt,
+weil der Mensch draussen auf Strassen oder Fusswegen laeuft.
+
+Damit die App fluessig bleibt, wird dieser Vergleich nicht bei jedem
+Browser-Start neu berechnet. `main.py` erzeugt einmal
+`data/processed/route_comparison.csv`; die App laedt danach diese fertige
+Datei.
 
 
-9. Wichtige Grenzen
+10. Wichtige Grenzen
 -------------------
 
 Die Genauigkeit ist aktuell begrenzt durch:
@@ -182,7 +249,7 @@ Der aktuelle Stand ist daher eine verstaendliche Grundlage fuer:
 - Position auf Karte schaetzen
 
 
-10. Wichtige Dateien
+11. Wichtige Dateien
 --------------------
 
 - `main.py`
@@ -200,6 +267,13 @@ Der aktuelle Stand ist daher eine verstaendliche Grundlage fuer:
 - `src/project_pipeline.py`
   Baut und laedt die laufzeitfaehigen Artefakte in `data/processed/`.
 
+- `src/wifi_input_matching.py`
+  Matcht aehnliche WLAN-Eingaben gegen bekannte `SSID+BSSID`-Kombinationen.
+
+- `src/road_constraints.py`
+  Setzt die freie Schaetzung auf die naechste begehbare OSM-Strasse oder einen
+  Fussweg.
+
 - `src/evaluation.py`
   Enthaelt Route-Comparison, Fehlerkennzahlen und 60-m-Radiusfilter.
 
@@ -208,18 +282,20 @@ Der aktuelle Stand ist daher eine verstaendliche Grundlage fuer:
   Benchmark.
 
 - `src/visualize_wifi_data.py`
-  Baut die Karte und zeichnet Marker, APs, Scan-Punkte und Radiuskreise.
+  Baut die Karten und zeichnet OSM-Kontext, geschaetzten Standort,
+  Router-Radiuskreise und geschaetzte Routerstandorte.
 
 - `tests/`
   Enthaelt automatische Tests fuer Import, Pipeline, Lokalisierung,
-  Radiusfilter, Route-Comparison und Genauigkeitskennzahlen.
+  tolerantes WLAN-Matching, Strassen-Snapping, Radiusfilter,
+  Route-Comparison und Genauigkeitskennzahlen.
 
 - `.github/workflows/ci.yml`
   Fuehrt bei Push und Pull Request automatisch einen schnellen
   Pipeline-Smoke-Test und `python -m pytest` aus.
 
 
-11. Typische Prof-Fragen
+12. Typische Prof-Fragen
 ------------------------
 
 Warum nutzt ihr SSID + BSSID?
@@ -234,6 +310,36 @@ Nutzerposition abzuschaetzen.
 Wie wird die Position heute geschaetzt?
 Nicht mehr ueber Referenzscan-Fingerprinting als Hauptweg, sondern ueber
 Multilateration gegen triangulierte Access Points.
+
+Warum liegt die Position auf der Strasse?
+Die rohe WLAN-Schaetzung kann geometrisch auch neben der Strasse oder in einem
+Gebaeude landen. Da der Nutzer draussen laeuft, projizieren wir die Schaetzung
+auf den naechsten begehbaren OSM-Weg.
+
+Warum wird der Router nicht auf die Strasse gesetzt?
+Der Nutzer laeuft auf Strassen oder Fusswegen, aber Router beziehungsweise
+Access Points koennen in Gebaeuden stehen. Deshalb wird nur der Nutzerstandort
+gesnappt, nicht der Routerstandort.
+
+Warum braucht ein Router mindestens 3 Kreise?
+Mit 1 Kreis kennt man nur einen moeglichen Abstand. Mit 2 Kreisen gibt es oft
+noch mehrere moegliche Schnittbereiche. Ab 3 Messpunkten wird die Schaetzung
+stabiler und fachlich besser begruendbar.
+
+Was passiert bei weniger als 3 Kreisen?
+Die App zeigt dann nur eine Fallback-Schaetzung. Bei 2 Kreisen nutzt sie einen
+Schnitt- oder Zwischenpunkt. Wenn Kreise nicht sauber zusammenpassen, wird eine
+gewichtete Federlogik genutzt, bei der staerkere Signale mehr ziehen.
+
+Warum gibt es einen Laufweg-Vergleich?
+Damit man sieht, wie weit der nur aus WLAN geschaetzte Laufweg vom echten
+GPS-Laufweg abweicht. GPS dient hier nur als Vergleich und Bewertung, nicht als
+Eingabe fuer die normale WLAN-Schaetzung.
+
+Warum akzeptiert die App aehnliche Eingaben?
+In echten Messungen koennen SSID-Schreibweisen oder MAC-Formatierungen leicht
+abweichen. Deshalb normalisieren wir die BSSID und vergleichen SSIDs tolerant.
+Der RSSI-Wert ist ohnehin ein neuer aktueller Messwert.
 
 Warum braucht ihr trotzdem GPS?
 Nur fuer die Offline-Kalibrierung. Ohne bekannte Trainingspunkte kann man die

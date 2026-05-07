@@ -4,33 +4,40 @@ import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
 
-from src.fingerprint_localization import (
-    get_scan_input_observations,
-    parse_manual_wifi_input,
-    run_leave_one_scan_out_benchmark,
-)
 from src.load_wifi_csv import load_wifi_csv
-from src.evaluation import (
-    DEFAULT_DISPLAY_RADIUS_M,
-    ROUTE_COMPARISON_COLUMNS,
-    build_route_comparison,
-    filter_points_by_radius,
-    summarize_route_accuracy,
-)
 from src.localization_logic import (
+    create_network_observations,
     estimate_overlap_points,
     estimate_position_from_access_points,
+    estimate_router_position_from_observations,
 )
-from src.preprocess_wifi_data import clean_wifi_data, create_scan_summary
+from src.preprocess_wifi_data import clean_wifi_data
 from src.project_pipeline import load_runtime_data
-from src.visualize_wifi_data import build_router_map, load_osm_map
+from src.road_constraints import snap_position_to_nearest_road
+from src.route_estimation import summarize_wifi_route
+from src.visualize_wifi_data import (
+    build_route_estimation_map,
+    build_router_estimation_map,
+    build_simple_location_map,
+    load_osm_map,
+)
+from src.wifi_input_matching import match_wifi_measurements
 
 RAW_CSV_PATH = Path("data/raw/WigleWifi_20260408161721.csv")
 RAW_OSM_PATH = Path("data/raw/map_innenstadt.osm")
 PROCESSED_DIR = Path("data/processed")
-ALL_OPTION = "Alle"
-MAX_RADIUS_OBSERVATIONS = 1000
-OVERLAP_COLUMNS = ["latitude", "longitude", "support_count", "network_id", "ssid", "bssid", "color"]
+DEFAULT_MIN_MATCHES = 3
+MAX_ROUTER_OBSERVATIONS_ON_MAP = 250
+SSID_COLORS = [
+    "#2563eb",
+    "#dc2626",
+    "#16a34a",
+    "#f97316",
+    "#7c3aed",
+    "#0891b2",
+    "#be123c",
+    "#4d7c0f",
+]
 
 
 @st.cache_data(show_spinner=False)
@@ -44,42 +51,26 @@ def load_osm_data() -> dict[str, object]:
 
 
 @st.cache_data(show_spinner=False)
-def load_calibration_bundle() -> dict[str, object] | None:
-    if not RAW_CSV_PATH.exists():
-        return None
-
+def load_router_calibration_bundle() -> dict[str, pd.DataFrame]:
     raw_dataframe = load_wifi_csv(RAW_CSV_PATH)
-    cleaned_dataframe = clean_wifi_data(
+    calibration_dataframe = clean_wifi_data(
         raw_dataframe,
         require_coordinates=True,
         include_coordinates=True,
     )
-    scan_summary = create_scan_summary(cleaned_dataframe)
+    network_observations = create_network_observations(calibration_dataframe)
     return {
-        "cleaned_dataframe": cleaned_dataframe,
-        "scan_summary": scan_summary,
+        "calibration_dataframe": calibration_dataframe,
+        "network_observations": network_observations,
     }
 
 
-@st.cache_data(show_spinner=False)
-def load_route_comparison_data() -> pd.DataFrame:
-    calibration_bundle = load_calibration_bundle()
-    if calibration_bundle is None:
-        return pd.DataFrame(columns=ROUTE_COMPARISON_COLUMNS)
-
-    runtime_data = load_runtime_bundle()
-    return build_route_comparison(
-        calibration_bundle["scan_summary"],
-        runtime_data["scan_summary"],
-    )
-
-
 def main() -> None:
-    st.set_page_config(page_title="WiFi Selbstlokalisierung", layout="wide")
-    st.title("WiFi-basierte Selbstlokalisierung")
+    st.set_page_config(page_title="WiFi Standorttest", layout="wide")
+    st.title("WiFi-Standorttest")
     st.write(
-        "Die Laufzeitansicht arbeitet mit triangulierten Access Points und "
-        "triangulierten Scan-Punkten. Roh-GPS wird im normalen Endtest nicht verwendet."
+        "Gib mehrere WLAN-Messwerte ein. Die App schaetzt daraus den Standort "
+        "und setzt ihn auf die naechste begehbare Strasse oder einen Fussweg."
     )
 
     if not RAW_OSM_PATH.exists():
@@ -89,540 +80,415 @@ def main() -> None:
     try:
         runtime_data = load_runtime_bundle()
     except FileNotFoundError as error:
-        st.error("Verarbeitete Artefakte fehlen. Starte zuerst `py main.py`, um die Triangulationsdaten zu erzeugen.")
+        st.error("Verarbeitete Artefakte fehlen. Starte zuerst `py main.py`.")
         st.caption(str(error))
         return
 
-    with st.spinner("Daten werden geladen..."):
-        osm_map = load_osm_data()
-
-    scan_summary = runtime_data["scan_summary"]
-    network_summary = runtime_data["network_summary"]
-    network_observations = runtime_data["network_observations"]
-    dataset_summary = runtime_data["dataset_summary"]
+    osm_map = load_osm_data()
     access_points = runtime_data["access_points"]
 
-    selected_ssid, selected_bssid = render_filters(network_summary)
-    position_estimate, test_input_observations, show_route_comparison = render_position_test_controls(access_points)
-    filtered_summary = filter_network_summary(network_summary, selected_ssid, selected_bssid)
-    filtered_observations = filter_network_observations(network_observations, selected_ssid, selected_bssid)
-    map_observations = get_map_observations(filtered_observations, selected_ssid, selected_bssid)
-    network_colors = build_network_colors(filtered_summary["network_id"].tolist())
-    if should_calculate_overlap(filtered_summary, selected_ssid, selected_bssid):
-        overlap_points = build_overlap_points(filtered_summary, map_observations, network_colors)
-    else:
-        overlap_points = pd.DataFrame(columns=OVERLAP_COLUMNS)
+    location_tab, router_tab, route_tab = st.tabs(["Standort-Test", "Router-Schaetzung", "Laufweg-Vergleich"])
 
-    if show_route_comparison:
-        with st.spinner("GPS-Route und WLAN-Schaetzroute werden verglichen..."):
-            route_comparison = load_route_comparison_data()
-    else:
-        route_comparison = pd.DataFrame(columns=ROUTE_COMPARISON_COLUMNS)
+    with location_tab:
+        wifi_text, min_matches, should_estimate = render_location_inputs(access_points)
+        render_location_tab(wifi_text, min_matches, should_estimate, access_points, osm_map)
 
-    focus_latitude, focus_longitude = get_position_focus(position_estimate)
-    focused_observations = filter_points_by_radius(
-        focus_latitude,
-        focus_longitude,
-        map_observations,
-        radius_m=DEFAULT_DISPLAY_RADIUS_M,
-    )
-    focused_access_points = get_display_access_points(
-        access_points,
-        filtered_summary,
-        selected_ssid,
-        selected_bssid,
-        focus_latitude,
-        focus_longitude,
-    )
+    with router_tab:
+        render_router_estimation_tab(osm_map)
 
-    with st.spinner("Standort-Karte wird aufgebaut..."):
-        estimate_map = build_router_map(
-            osm_map,
-            scan_summary,
-            focused_observations,
-            overlap_points,
-            network_colors,
-            focused_access_points,
-            position_estimate,
-        )
-
-    left_column, right_column = st.columns([2.4, 1])
-
-    with left_column:
-        estimate_tab, comparison_tab = st.tabs(["Standort-Schaetzung", "GPS-vs-WLAN-Vergleich"])
-
-        with estimate_tab:
-            st.subheader("Standort-Schaetzung")
-            st.caption(
-                f"Radius- und AP-Layer werden um die aktuelle Schaetzung auf {DEFAULT_DISPLAY_RADIUS_M:.0f} m begrenzt."
-            )
-            st_folium(estimate_map, use_container_width=True, height=780)
-
-        with comparison_tab:
-            st.subheader("GPS-vs-WLAN-Vergleich")
-            if route_comparison.empty:
-                st.info("Aktiviere links `GPS-Route mit WLAN-Schaetzung vergleichen`, um den Vergleich zu sehen.")
-            else:
-                with st.spinner("Vergleichs-Karte wird aufgebaut..."):
-                    comparison_map = build_router_map(
-                        osm_map,
-                        scan_summary,
-                        pd.DataFrame(columns=map_observations.columns),
-                        pd.DataFrame(columns=OVERLAP_COLUMNS),
-                        network_colors,
-                        pd.DataFrame(columns=access_points.columns),
-                        route_comparison=route_comparison,
-                        show_scan_markers=False,
-                        show_access_points=False,
-                    )
-                st_folium(comparison_map, use_container_width=True, height=780)
-
-    with right_column:
-        render_sidebar_content(
-            dataset_summary,
-            filtered_summary,
-            filtered_observations,
-            focused_observations,
-            overlap_points,
-            network_colors,
-            selected_ssid,
-            selected_bssid,
-            position_estimate,
-            test_input_observations,
-            focused_access_points,
-            route_comparison,
-        )
+    with route_tab:
+        render_route_comparison_tab(runtime_data.get("route_comparison", pd.DataFrame()), osm_map)
 
 
-def render_filters(network_summary: pd.DataFrame) -> tuple[str, str]:
-    with st.sidebar:
-        st.header("Filter")
-
-        ssid_options = [ALL_OPTION] + sorted(network_summary["ssid"].dropna().unique().tolist())
-        selected_ssid = st.selectbox("SSID", ssid_options, index=0)
-
-        bssid_options = get_bssid_options(network_summary, selected_ssid)
-        selected_bssid = st.selectbox("MAC-Adresse (BSSID)", bssid_options, index=0)
-
-    return selected_ssid, selected_bssid
-
-
-def render_position_test_controls(
+def render_location_tab(
+    wifi_text: str,
+    min_matches: int,
+    should_estimate: bool,
     access_points: pd.DataFrame,
-) -> tuple[object | None, pd.DataFrame, bool]:
-    empty_observations = pd.DataFrame(columns=["network_id", "ssid", "bssid", "rssi"])
+    osm_map: dict[str, object],
+) -> None:
+    result = None
+    matched_measurements = pd.DataFrame()
+    ignored_measurements = pd.DataFrame()
 
-    with st.sidebar:
-        st.header("Standort-Test")
-        mode = st.selectbox(
-            "Modus",
-            ["Aus", "Manuelle Eingabe", "Dev-Benchmark"],
-            index=0,
-        )
-        min_matches = st.slider("Minimale AP-Treffer", min_value=3, max_value=6, value=3)
-        show_route_comparison = st.checkbox("GPS-Route mit WLAN-Schaetzung vergleichen", value=False)
-
-        if mode == "Aus":
-            return None, empty_observations, show_route_comparison
-
-        if mode == "Manuelle Eingabe":
-            manual_text = st.text_area(
-                "WLAN-Werte",
-                placeholder="SSID,BSSID,RSSI\neduroam,aa:bb:cc:dd:ee:ff,-65",
-                height=140,
-            )
-            input_observations = parse_manual_wifi_input(manual_text)
-            estimate = estimate_position_from_access_points(
-                access_points,
-                input_observations,
-                min_matches=min_matches,
-            )
-            return estimate, input_observations, show_route_comparison
-
-        calibration_bundle = load_calibration_bundle()
-        if calibration_bundle is None:
-            st.warning("Kein Rohdatensatz mit GPS verfuegbar. Der Dev-Benchmark ist daher deaktiviert.")
-            return None, empty_observations, show_route_comparison
-
-        scan_ids = calibration_bundle["scan_summary"]["scan_id"].tolist()
-        selected_scan_id = st.selectbox("Benchmark-Scan", scan_ids, index=0)
-        input_observations = get_scan_input_observations(
-            calibration_bundle["cleaned_dataframe"],
-            selected_scan_id,
-        )
-        estimate = run_leave_one_scan_out_benchmark(
-            calibration_bundle["cleaned_dataframe"],
-            selected_scan_id,
+    if should_estimate:
+        result, matched_measurements, ignored_measurements = estimate_location_on_road(
+            wifi_text,
+            access_points,
+            osm_map,
             min_matches=min_matches,
         )
-        return estimate, input_observations, show_route_comparison
+
+    location_map = build_simple_location_map(osm_map, result)
+    left_column, right_column = st.columns([2.3, 1])
+
+    with left_column:
+        st.subheader("Geschaetzter Standort")
+        st_folium(location_map, use_container_width=True, height=720, key="location_map")
+
+    with right_column:
+        render_result_panel(result, matched_measurements, ignored_measurements)
 
 
-def get_bssid_options(network_summary: pd.DataFrame, selected_ssid: str) -> list[str]:
-    if selected_ssid == ALL_OPTION:
-        bssid_values = sorted(network_summary["bssid"].dropna().unique().tolist())
-    else:
-        bssid_values = sorted(
-            network_summary.loc[network_summary["ssid"] == selected_ssid, "bssid"]
-            .dropna()
-            .unique()
-            .tolist()
-        )
-
-    return [ALL_OPTION] + bssid_values
-
-
-def filter_network_summary(
-    network_summary: pd.DataFrame,
-    selected_ssid: str,
-    selected_bssid: str,
-) -> pd.DataFrame:
-    filtered = network_summary.copy()
-
-    if selected_ssid != ALL_OPTION:
-        filtered = filtered.loc[filtered["ssid"] == selected_ssid]
-
-    if selected_bssid != ALL_OPTION:
-        filtered = filtered.loc[filtered["bssid"] == selected_bssid]
-
-    return filtered.reset_index(drop=True)
-
-
-def filter_network_observations(
-    network_observations: pd.DataFrame,
-    selected_ssid: str,
-    selected_bssid: str,
-) -> pd.DataFrame:
-    filtered = network_observations.copy()
-
-    if selected_ssid != ALL_OPTION:
-        filtered = filtered.loc[filtered["ssid"] == selected_ssid]
-
-    if selected_bssid != ALL_OPTION:
-        filtered = filtered.loc[filtered["bssid"] == selected_bssid]
-
-    return filtered.reset_index(drop=True)
-
-
-def should_show_radius_circles(
-    selected_ssid: str,
-    selected_bssid: str,
-    observation_count: int,
-) -> bool:
-    if selected_ssid == ALL_OPTION and selected_bssid == ALL_OPTION:
-        return False
-
-    return observation_count <= MAX_RADIUS_OBSERVATIONS
-
-
-def should_calculate_overlap(
-    filtered_summary: pd.DataFrame,
-    selected_ssid: str,
-    selected_bssid: str,
-) -> bool:
-    return (
-        selected_ssid != ALL_OPTION
-        and selected_bssid != ALL_OPTION
-        and len(filtered_summary) == 1
+def render_router_estimation_tab(osm_map: dict[str, object]) -> None:
+    st.subheader("Router-Schaetzung aus RSSI-Kreisen")
+    st.write(
+        "Hier wird pro Messpunkt ein Kreis aus dem RSSI-Wert gebildet. "
+        "Ab 3 Messpunkten wird der beste gemeinsame Kreispunkt gesucht; bei weniger Messpunkten "
+        "nutzt die App eine einfache Schnittpunkt-/Feder-Schaetzung."
     )
 
+    if not RAW_CSV_PATH.exists():
+        st.error(f"Rohdaten fuer Router-Schaetzung fehlen: {RAW_CSV_PATH}")
+        return
 
-def get_map_observations(
-    filtered_observations: pd.DataFrame,
-    selected_ssid: str,
-    selected_bssid: str,
-) -> pd.DataFrame:
-    if not should_show_radius_circles(selected_ssid, selected_bssid, len(filtered_observations)):
-        return filtered_observations.iloc[0:0].copy()
+    router_data = load_router_calibration_bundle()
+    observations = router_data["network_observations"]
+    selected_observations, selected_ssid, selected_bssid = render_router_filters(observations)
 
-    return filtered_observations
+    if selected_observations.empty:
+        st.info("Waehle eine SSID oder eine konkrete BSSID aus, um Messpunkte und RSSI-Kreise zu sehen.")
+        render_router_dataset_overview(observations)
+        empty_map = build_router_estimation_map(osm_map, pd.DataFrame(), pd.DataFrame(), {}, pd.DataFrame())
+        st_folium(empty_map, use_container_width=True, height=700, key="router_empty_map")
+        return
 
+    if len(selected_observations) > MAX_ROUTER_OBSERVATIONS_ON_MAP:
+        st.warning(
+            f"Die Auswahl enthaelt {len(selected_observations)} Beobachtungen. "
+            "Bitte eine konkrete BSSID waehlen, damit die Karte fluessig bleibt."
+        )
+        render_router_dataset_overview(selected_observations)
+        return
 
-def get_position_focus(position_estimate: object | None) -> tuple[float | None, float | None]:
-    if position_estimate is None:
-        return None, None
+    ssid_colors = build_ssid_color_map(selected_observations["ssid"].dropna().unique())
+    router_estimates = build_router_estimates(selected_observations)
+    overlap_points = build_router_overlap_points(selected_observations, ssid_colors)
+    router_map = build_router_estimation_map(
+        osm_map,
+        selected_observations,
+        router_estimates,
+        ssid_colors,
+        overlap_points,
+    )
 
-    return float(position_estimate["latitude"]), float(position_estimate["longitude"])
-
-
-def get_display_access_points(
-    access_points: pd.DataFrame,
-    filtered_summary: pd.DataFrame,
-    selected_ssid: str,
-    selected_bssid: str,
-    focus_latitude: float | None,
-    focus_longitude: float | None,
-) -> pd.DataFrame:
-    if access_points.empty:
-        return access_points.copy()
-
-    if focus_latitude is not None and focus_longitude is not None:
-        return filter_points_by_radius(
-            focus_latitude,
-            focus_longitude,
-            access_points,
-            radius_m=DEFAULT_DISPLAY_RADIUS_M,
+    left_column, right_column = st.columns([2.3, 1])
+    with left_column:
+        st_folium(router_map, use_container_width=True, height=720, key="router_estimation_map")
+    with right_column:
+        render_router_result_panel(
+            selected_observations,
+            router_estimates,
+            overlap_points,
+            selected_ssid,
+            selected_bssid,
         )
 
-    if selected_ssid == ALL_OPTION and selected_bssid == ALL_OPTION:
-        return access_points.iloc[0:0].copy()
 
-    network_ids = set(filtered_summary["network_id"].dropna().tolist())
-    return access_points.loc[access_points["network_id"].isin(network_ids)].reset_index(drop=True)
+def render_route_comparison_tab(route_estimates: pd.DataFrame, osm_map: dict[str, object]) -> None:
+    st.subheader("GPS-Laufweg vs. WLAN-Laufweg")
+    st.write(
+        "Die rote Linie ist der echte GPS-Laufweg. Die blaue Linie ist der nur aus WLAN-Signalen "
+        "geschaetzte Laufweg. Orange Linien zeigen die Abweichung zwischen GPS-Punkt und WLAN-Schaetzung."
+    )
+
+    if route_estimates.empty:
+        st.warning("Laufweg-Vergleich fehlt. Starte zuerst `py main.py`, damit route_comparison.csv erzeugt wird.")
+        return
+
+    min_matches = st.slider(
+        "Minimale AP-Treffer fuer WLAN-Laufweg",
+        min_value=1,
+        max_value=6,
+        value=2,
+        key="route_min_matches",
+    )
+    route_estimates = route_estimates.loc[route_estimates["matched_access_points"] >= min_matches].copy()
+    route_map = build_route_estimation_map(osm_map, route_estimates)
+
+    left_column, right_column = st.columns([2.3, 1])
+    with left_column:
+        st_folium(route_map, use_container_width=True, height=720, key="route_comparison_map")
+    with right_column:
+        render_route_result_panel(route_estimates)
 
 
-def build_network_colors(network_ids: list[str]) -> dict[str, str]:
-    palette = [
-        "#2563eb",
-        "#dc2626",
-        "#16a34a",
-        "#ca8a04",
-        "#9333ea",
-        "#0891b2",
-        "#ea580c",
-        "#4f46e5",
-        "#be123c",
-        "#0f766e",
-    ]
+def render_location_inputs(access_points: pd.DataFrame) -> tuple[str, int, bool]:
+    st.subheader("WLAN-Werte eingeben")
+    st.caption("Format pro Zeile: `SSID,BSSID,RSSI`")
+    wifi_text = st.text_area(
+        "WLAN-Werte",
+        value=build_example_input(access_points),
+        height=190,
+        key="location_wifi_input",
+    )
+    min_matches = st.slider(
+        "Minimale AP-Treffer",
+        min_value=2,
+        max_value=6,
+        value=DEFAULT_MIN_MATCHES,
+        key="location_min_matches",
+    )
+    should_estimate = st.button("Standort schaetzen", type="primary")
 
+    return wifi_text, min_matches, should_estimate
+
+
+def render_router_filters(observations: pd.DataFrame) -> tuple[pd.DataFrame, str, str]:
+    filter_column, _ = st.columns([1, 2])
+    with filter_column:
+        ssid_options = ["Alle"] + sorted(observations["ssid"].dropna().astype(str).unique().tolist())
+        selected_ssid = st.selectbox("SSID", ssid_options, key="router_ssid")
+
+        bssid_source = observations
+        if selected_ssid != "Alle":
+            bssid_source = bssid_source.loc[bssid_source["ssid"] == selected_ssid]
+        bssid_options = ["Alle"] + sorted(bssid_source["bssid"].dropna().astype(str).unique().tolist())
+        selected_bssid = st.selectbox("BSSID / Router", bssid_options, key="router_bssid")
+
+    if selected_ssid == "Alle" and selected_bssid == "Alle":
+        return pd.DataFrame(), selected_ssid, selected_bssid
+
+    selected = observations.copy()
+    if selected_ssid != "Alle":
+        selected = selected.loc[selected["ssid"] == selected_ssid].copy()
+    if selected_bssid != "Alle":
+        selected = selected.loc[selected["bssid"] == selected_bssid].copy()
+    return selected, selected_ssid, selected_bssid
+
+
+def build_ssid_color_map(ssids: list[str] | pd.Index) -> dict[str, str]:
     return {
-        network_id: palette[index % len(palette)]
-        for index, network_id in enumerate(network_ids)
+        str(ssid): SSID_COLORS[index % len(SSID_COLORS)]
+        for index, ssid in enumerate(sorted(str(ssid) for ssid in ssids))
     }
 
 
-def build_overlap_points(
-    filtered_summary: pd.DataFrame,
-    filtered_observations: pd.DataFrame,
-    network_colors: dict[str, str],
+def build_router_estimates(observations: pd.DataFrame) -> pd.DataFrame:
+    estimates: list[dict[str, object]] = []
+    if observations.empty:
+        return pd.DataFrame(columns=router_estimate_columns())
+
+    for _, network_rows in observations.groupby(["network_id", "ssid", "bssid"]):
+        estimate = estimate_router_position_from_observations(network_rows)
+        if estimate is not None:
+            estimates.append(estimate)
+
+    if not estimates:
+        return pd.DataFrame(columns=router_estimate_columns())
+
+    return pd.DataFrame(estimates, columns=router_estimate_columns()).sort_values(
+        ["quality_flag", "scan_count", "rmse_m"],
+        ascending=[True, False, True],
+    )
+
+
+def build_router_overlap_points(
+    observations: pd.DataFrame,
+    ssid_colors: dict[str, str],
 ) -> pd.DataFrame:
-    if len(filtered_summary) != 1:
-        return pd.DataFrame(columns=OVERLAP_COLUMNS)
+    if observations.empty or observations["network_id"].nunique() != 1:
+        return pd.DataFrame(columns=["latitude", "longitude", "support_count", "ssid", "bssid", "color"])
 
-    overlap_frames: list[pd.DataFrame] = []
+    overlap_points = estimate_overlap_points(observations, step_m=2.5, min_support=3)
+    if overlap_points.empty:
+        return overlap_points
 
-    for _, summary_row in filtered_summary.iterrows():
-        network_id = summary_row["network_id"]
-        network_rows = filtered_observations.loc[filtered_observations["network_id"] == network_id]
-        overlap_points = estimate_overlap_points(network_rows)
-
-        if overlap_points.empty:
-            continue
-
-        overlap_points = overlap_points.copy()
-        overlap_points["network_id"] = network_id
-        overlap_points["ssid"] = summary_row["ssid"]
-        overlap_points["bssid"] = summary_row["bssid"]
-        overlap_points["color"] = network_colors[network_id]
-        overlap_frames.append(overlap_points)
-
-    if not overlap_frames:
-        return pd.DataFrame(columns=OVERLAP_COLUMNS)
-
-    return pd.concat(overlap_frames, ignore_index=True)
+    first_row = observations.iloc[0]
+    overlap_points = overlap_points.copy()
+    overlap_points["ssid"] = first_row["ssid"]
+    overlap_points["bssid"] = first_row["bssid"]
+    overlap_points["color"] = ssid_colors.get(first_row["ssid"], "#dc2626")
+    return overlap_points
 
 
-def render_sidebar_content(
-    dataset_summary: dict[str, object],
-    filtered_summary: pd.DataFrame,
-    filtered_observations: pd.DataFrame,
-    map_observations: pd.DataFrame,
+def router_estimate_columns() -> list[str]:
+    return [
+        "network_id",
+        "ssid",
+        "bssid",
+        "latitude",
+        "longitude",
+        "scan_count",
+        "total_observations",
+        "mean_rssi",
+        "min_radius_m",
+        "max_radius_m",
+        "rmse_m",
+        "quality_flag",
+        "method",
+    ]
+
+
+def render_router_dataset_overview(observations: pd.DataFrame) -> None:
+    st.metric("Beobachtungen", len(observations))
+    st.metric("SSIDs", observations["ssid"].nunique())
+    st.metric("SSID+BSSID", observations["network_id"].nunique())
+
+
+def render_router_result_panel(
+    selected_observations: pd.DataFrame,
+    router_estimates: pd.DataFrame,
     overlap_points: pd.DataFrame,
-    network_colors: dict[str, str],
     selected_ssid: str,
     selected_bssid: str,
-    position_estimate: object | None,
-    test_input_observations: pd.DataFrame,
-    access_points: pd.DataFrame,
-    route_comparison: pd.DataFrame,
 ) -> None:
-    st.subheader("Datensatz")
-    st.metric("Scans", int(dataset_summary["scans"]))
-    st.metric("Gefilterte Netzwerke", int(filtered_summary["network_id"].nunique()))
-    st.metric("APs auf Karte", int(len(access_points)))
+    st.subheader("Auswahl")
+    st.write(f"SSID: `{selected_ssid}`")
+    st.write(f"BSSID: `{selected_bssid}`")
+    st.metric("Messkreise", len(selected_observations))
+    st.metric("Geschaetzte Router", len(router_estimates))
 
-    st.subheader("Gefilterte Auswahl")
-    if filtered_summary.empty:
-        st.warning("Mit dieser Filterkombination wurden keine Netzwerke gefunden.")
-        return
-
-    if selected_ssid == ALL_OPTION and selected_bssid == ALL_OPTION:
-        st.info(
-            "Uebersicht: Es werden triangulierte Scan-Punkte und Access Points angezeigt. "
-            "Waehle eine SSID oder MAC-Adresse aus, um Schaetzkreise einzublenden."
-        )
-        render_top_networks(filtered_summary)
-        render_position_estimate(position_estimate, test_input_observations)
-        render_route_comparison_summary(route_comparison)
-        render_architecture_note()
-        return
-
-    if len(filtered_summary) == 1:
-        selected_summary = filtered_summary.iloc[0]
-        st.write(f"SSID: `{selected_summary['ssid']}`")
-        st.write(f"BSSID: `{selected_summary['bssid']}`")
-        st.write(f"Beobachtete Scans: {int(selected_summary['scan_count'])}")
-        st.write(f"Gesamtbeobachtungen: {int(selected_summary['total_observations'])}")
-        st.write(f"Mittlere RSSI: {selected_summary['mean_rssi']:.1f} dBm")
-        st.write(
-            "Radiusbereich: "
-            f"{selected_summary['min_radius_m']:.1f} m bis {selected_summary['max_radius_m']:.1f} m"
-        )
-        st.write(f"Ueberlappungspunkte: {len(overlap_points)}")
+    if router_estimates.empty:
+        st.warning("Fuer diese Auswahl gibt es noch keinen Routerstandort.")
     else:
-        st.write(
-            "Mehrere Netzwerke sind aktiv. Jede eindeutige Kombination aus "
-            "`SSID + BSSID` wird in einer eigenen Farbe dargestellt."
-        )
-        if map_observations.empty and len(filtered_observations) > MAX_RADIUS_OBSERVATIONS:
-            st.warning(
-                "Die aktuelle Auswahl enthaelt zu viele Radiuskreise. "
-                "Bitte waehle zusaetzlich eine MAC-Adresse aus."
-            )
-        elif overlap_points.empty:
-            st.info(
-                "Bei mehreren Netzwerken wird keine globale Kreis-Ueberlappung berechnet. "
-                "Waehle eine konkrete MAC-Adresse aus, um Schnittbereiche zu sehen."
-            )
-
-    st.subheader("Farben der Netzwerke")
-    color_rows = filtered_summary.loc[:, ["ssid", "bssid", "network_id"]].copy()
-    color_rows["farbe"] = color_rows["network_id"].map(network_colors)
-    st.dataframe(color_rows, use_container_width=True, hide_index=True)
-
-    render_observations_table(filtered_observations)
-
-    if overlap_points.empty:
-        st.info(
-            "Fuer die aktuelle Auswahl gibt es noch keine starke Kreis-Ueberlappung "
-            "aus mindestens zwei triangulierten Scan-Beobachtungen desselben Netzwerks."
-        )
-    else:
-        st.success(
-            "Es wurden Ueberlappungspunkte gefunden. Diese markieren Bereiche, "
-            "in denen mehrere Radiuskreise desselben Netzwerks zusammenlaufen."
-        )
+        best_router = router_estimates.iloc[0]
+        st.success("Routerstandort wurde aus den Messkreisen geschaetzt.")
+        st.write(f"Koordinate: `{best_router['latitude']:.6f}, {best_router['longitude']:.6f}`")
+        st.write(f"RMSE: `{best_router['rmse_m']:.1f} m`")
+        st.write(f"Qualitaet: `{best_router['quality_flag']}`")
+        st.write(f"Methode: `{best_router['method']}`")
         st.dataframe(
-            overlap_points[
-                ["ssid", "bssid", "support_count", "latitude", "longitude"]
-            ],
+            router_estimates[["ssid", "bssid", "scan_count", "rmse_m", "quality_flag", "method"]],
             use_container_width=True,
             hide_index=True,
         )
 
-    render_position_estimate(position_estimate, test_input_observations)
-    render_route_comparison_summary(route_comparison)
-    render_architecture_note()
+    if selected_observations["network_id"].nunique() == 1:
+        st.metric("Schnittpunkte mit min. 3 Kreisen", len(overlap_points))
+    else:
+        st.info("Schnittpunkte werden nur fuer eine konkrete SSID+BSSID berechnet.")
 
 
-def render_top_networks(filtered_summary: pd.DataFrame) -> None:
-    st.subheader("Haeufig beobachtete Netzwerke")
-    st.dataframe(
-        filtered_summary[
-            [
-                "ssid",
-                "bssid",
-                "scan_count",
-                "total_observations",
-                "mean_rssi",
-            ]
-        ].head(15),
-        use_container_width=True,
-        hide_index=True,
-    )
-
-
-def render_observations_table(filtered_observations: pd.DataFrame) -> None:
-    st.subheader("Beobachtungen")
-    st.dataframe(
-        filtered_observations[
-            [
-                "scan_id",
-                "ssid",
-                "bssid",
-                "mean_rssi",
-                "estimated_radius_m",
-                "observation_count",
-            ]
-        ].head(300),
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    if len(filtered_observations) > 300:
-        st.caption("Es werden nur die ersten 300 Beobachtungen angezeigt.")
-
-
-def render_position_estimate(position_estimate: object | None, test_input_observations: pd.DataFrame) -> None:
-    st.subheader("Standort-Testrun")
-
-    if test_input_observations.empty:
-        st.info("Aktiviere links den Standort-Test, um aus WLAN-Werten eine Position zu schaetzen.")
+def render_route_result_panel(route_estimates: pd.DataFrame) -> None:
+    st.subheader("Laufweg-Auswertung")
+    if route_estimates.empty:
+        st.warning("Es konnten keine WLAN-Laufwegpunkte geschaetzt werden.")
         return
 
-    st.write(f"Eingegebene WLAN-Netzwerke: {len(test_input_observations)}")
+    summary = summarize_wifi_route(route_estimates)
+    st.metric("Verglichene Scans", summary["estimated_scans"])
+    st.metric("Mittlerer Fehler", f"{summary['mean_error_m']:.1f} m")
+    st.metric("Median-Fehler", f"{summary['median_error_m']:.1f} m")
+    st.metric("Max. Fehler", f"{summary['max_error_m']:.1f} m")
 
-    if position_estimate is None:
-        st.warning(
-            "Keine Position gefunden. Es muessen mindestens drei eingegebene `SSID+BSSID`-Kombinationen "
-            "als triangulierte Access Points bekannt sein."
-        )
-        return
+    st.write("Farben:")
+    st.write("GPS-Laufweg: rot")
+    st.write("WLAN-Laufweg: blau")
+    st.write("Abweichung GPS zu WLAN: orange")
 
-    st.success("Geschaetzter Standort wurde auf der Karte markiert.")
-    st.write(f"Latitude: `{position_estimate['latitude']:.6f}`")
-    st.write(f"Longitude: `{position_estimate['longitude']:.6f}`")
-    st.write(f"Residual-RMSE: {position_estimate['residual_rmse']:.1f} m")
-    st.write(f"Gematchte APs: {position_estimate['matched_networks']}")
-    st.write(f"Konfidenz: {position_estimate['confidence_score']:.2f}")
-
-    if position_estimate["error_m"] is not None:
-        st.write(f"Benchmark-Fehler gegen GPS-Referenz: {position_estimate['error_m']:.1f} m")
-
-    matched_access_points = position_estimate.get("matched_access_points")
-    if isinstance(matched_access_points, pd.DataFrame) and not matched_access_points.empty:
+    with st.expander("Scan-Details"):
         st.dataframe(
-            matched_access_points[
-                ["ssid", "bssid", "rssi", "estimated_radius_m", "quality_flag"]
+            route_estimates[
+                [
+                    "scan_id",
+                    "matched_access_points",
+                    "residual_rmse",
+                    "snap_distance_m",
+                    "error_m",
+                    "method",
+                ]
             ],
             use_container_width=True,
             hide_index=True,
         )
 
 
-def render_route_comparison_summary(route_comparison: pd.DataFrame) -> None:
-    st.subheader("Routenvergleich")
+def build_example_input(access_points: pd.DataFrame, count: int = 3) -> str:
+    if access_points.empty:
+        return "SSID,BSSID,RSSI"
 
-    if route_comparison.empty:
-        st.info("Aktiviere links `GPS-Route mit WLAN-Schaetzung vergleichen`, um GPS und WLAN-Schaetzung zu vergleichen.")
+    rows = ["SSID,BSSID,RSSI"]
+    for row in access_points.head(count).itertuples(index=False):
+        rssi = int(round(getattr(row, "mean_rssi", -70)))
+        rows.append(f"{row.ssid},{row.bssid},{rssi}")
+    return "\n".join(rows)
+
+
+def estimate_location_on_road(
+    wifi_text: str,
+    access_points: pd.DataFrame,
+    osm_map: dict[str, object],
+    *,
+    min_matches: int = DEFAULT_MIN_MATCHES,
+) -> tuple[dict[str, object] | None, pd.DataFrame, pd.DataFrame]:
+    matched_measurements, ignored_measurements = match_wifi_measurements(wifi_text, access_points)
+    if matched_measurements.empty:
+        return None, matched_measurements, ignored_measurements
+
+    raw_estimate = estimate_position_from_access_points(
+        access_points,
+        matched_measurements,
+        min_matches=min_matches,
+    )
+    if raw_estimate is None:
+        return None, matched_measurements, ignored_measurements
+
+    snapped_position = snap_position_to_nearest_road(
+        raw_estimate["latitude"],
+        raw_estimate["longitude"],
+        osm_map,
+    )
+    result = {
+        **raw_estimate,
+        "raw_latitude": raw_estimate["latitude"],
+        "raw_longitude": raw_estimate["longitude"],
+        "latitude": snapped_position["latitude"],
+        "longitude": snapped_position["longitude"],
+        "snap_distance_m": snapped_position["snap_distance_m"],
+        "road_type": snapped_position["road_type"],
+        "snapped": snapped_position["snapped"],
+    }
+    return result, matched_measurements, ignored_measurements
+
+
+def render_result_panel(
+    result: dict[str, object] | None,
+    matched_measurements: pd.DataFrame,
+    ignored_measurements: pd.DataFrame,
+) -> None:
+    st.subheader("Ergebnis")
+
+    if result is None:
+        st.info("Klicke links auf `Standort schaetzen`, um einen Standort zu berechnen.")
+        if not ignored_measurements.empty:
+            st.warning("Einige Eingabezeilen konnten nicht verwendet werden.")
+            st.dataframe(ignored_measurements, use_container_width=True, hide_index=True)
         return
 
-    summary = summarize_route_accuracy(route_comparison)
-    st.success("GPS-Route, WLAN-Schaetzpunkte und Verbindungslinien sind auf der Karte aktiv.")
-    st.write(f"Verglichene Scans: {summary['compared_scans']}")
-    st.write(f"Mittlerer Fehler: {summary['mean_error_m']:.1f} m")
-    st.write(f"Medianfehler: {summary['median_error_m']:.1f} m")
-    st.write(f"Maximaler Fehler: {summary['max_error_m']:.1f} m")
-    st.dataframe(
-        route_comparison[
-            [
-                "scan_id",
-                "matched_access_points",
-                "residual_rmse",
-                "error_m",
-            ]
-        ].head(80),
-        use_container_width=True,
-        hide_index=True,
-    )
+    st.success("Standort wurde geschaetzt und auf einen begehbaren Weg gesetzt.")
+    st.metric("Gematchte Netzwerke", int(result["matched_networks"]))
+    st.metric("RMSE", f"{result['residual_rmse']:.1f} m")
+    snap_distance = result.get("snap_distance_m")
+    if snap_distance is not None:
+        st.metric("Distanz zur Strasse", f"{snap_distance:.1f} m")
+    st.write(f"Koordinate: `{result['latitude']:.6f}, {result['longitude']:.6f}`")
+    st.write(f"OSM-Wegtyp: `{result.get('road_type') or 'nicht gefunden'}`")
 
+    with st.expander("Technische Details"):
+        st.write("Roh-Schaetzung vor dem Strassen-Snapping:")
+        st.write(f"`{result['raw_latitude']:.6f}, {result['raw_longitude']:.6f}`")
 
-def render_architecture_note() -> None:
-    st.subheader("Architekturhinweis")
-    st.write(
-        "Die Runtime nutzt nur triangulierte Access Points und RSSI-basierte Distanzschaetzungen. "
-        "Roh-GPS ist nur fuer die Offline-Kalibrierung und den optionalen Dev-Benchmark relevant."
-    )
+        if not matched_measurements.empty:
+            st.write("Verwendete WLAN-Eingaben:")
+            st.dataframe(
+                matched_measurements[["ssid", "bssid", "rssi", "input_ssid", "input_bssid", "ssid_similarity"]],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+        matched_access_points = result.get("matched_access_points")
+        if isinstance(matched_access_points, pd.DataFrame) and not matched_access_points.empty:
+            st.write("Gematchte triangulierte Access Points:")
+            st.dataframe(
+                matched_access_points[["ssid", "bssid", "rssi", "estimated_radius_m", "quality_flag"]],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+        if not ignored_measurements.empty:
+            st.write("Ignorierte Eingaben:")
+            st.dataframe(ignored_measurements, use_container_width=True, hide_index=True)
 
 
 if __name__ == "__main__":

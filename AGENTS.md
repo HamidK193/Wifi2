@@ -31,9 +31,14 @@ fuer dieses Repository.
 - Messpunkte und Scans zusammenfassen
 - Radiusbereiche aus RSSI abschaetzen
 - OSM-Export aus `data/raw/map.osm` einlesen
-- interaktive Browser-Karte statt statischer PNG-Visualisierung bereitstellen
+- einfache Browser-App fuer WLAN-Eingabe und Standort-Schaetzung bereitstellen
+- geschaetzte Position auf begehbare OSM-Strassen oder Fusswege setzen
+- eigenen Tab fuer Router-Schaetzung mit Messpunkten, RSSI-Kreisen und
+  geschaetztem Routerstandort bereitstellen
+- eigenen Tab fuer Laufweg-Vergleich mit GPS-Route, WLAN-Route,
+  Richtungspfeilen und Fehlerlinien bereitstellen
 - Kreis-Ueberlagerung fuer spaetere Router- oder Standortabschaetzung
-  vorbereiten
+  intern vorbereiten und im Router-Schaetzungs-Tab nachvollziehbar anzeigen
 - automatisierte Tests und GitHub Actions pflegen
 
 ### Relevante Quelldateien
@@ -45,7 +50,9 @@ fuer dieses Repository.
 - `src/localization_logic.py`
 - `src/preprocess_wifi_data.py`
 - `src/project_pipeline.py`
+- `src/road_constraints.py`
 - `src/visualize_wifi_data.py`
+- `src/wifi_input_matching.py`
 
 ### Aktuelle Arbeitsschritte
 
@@ -55,11 +62,15 @@ fuer dieses Repository.
 4. `SSID + BSSID` als Netzwerkeinheit modellieren
 5. Scan-Zusammenfassung erzeugen
 6. Netzwerk-Beobachtungen und Radius-Schaetzungen erzeugen
-7. Kreis-Ueberlagerung desselben Netzwerks vorbereiten
-8. Interaktive OSM-Karte im Browser bereitstellen
-9. Standort-Schaetzung und GPS-vs-WLAN-Vergleich getrennt anzeigen
-10. Funktionalitaet, Performance und Genauigkeit per Tests absichern
-11. Dokumentation aktualisieren
+7. WLAN-Eingaben tolerant gegen bekannte `SSID+BSSID` matchen
+8. Standort per AP-Multilateration schaetzen
+9. Standort auf naechste begehbare OSM-Strasse oder Fussweg setzen
+10. Einfache Browser-App ohne Analysefilter bereitstellen
+11. Router-Schaetzung aus mindestens 3 RSSI-Kreisen im eigenen Tab anzeigen
+12. Fallback-Schaetzung fuer weniger als 3 Kreise nachvollziehbar markieren
+13. GPS-Laufweg und WLAN-Laufweg im eigenen Tab vergleichen
+14. Funktionalitaet, Performance und Genauigkeit per Tests absichern
+15. Dokumentation aktualisieren
 
 ### Spaetere Erweiterungen
 

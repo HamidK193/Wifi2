@@ -11,12 +11,14 @@ def test_run_data_pipeline_creates_expected_outputs(triangulation_wigle_csv, tmp
     assert pipeline_data["dataset_summary"]["unique_network_entities"] == 3
     assert len(pipeline_data["access_points"]) == 3
     assert len(pipeline_data["scan_positions"]) == 4
+    assert "route_comparison" in pipeline_data
 
     output_names = sorted(path.name for path in pipeline_data["output_paths"])
     assert output_names == [
         "dataset_summary.txt",
         "network_observations.csv",
         "network_summary.csv",
+        "route_comparison.csv",
         "scan_summary.csv",
         "triangulated_access_points.csv",
         "triangulated_scan_positions.csv",
@@ -29,3 +31,4 @@ def test_run_data_pipeline_creates_expected_outputs(triangulation_wigle_csv, tmp
     runtime_data = load_runtime_data(tmp_path)
     assert len(runtime_data["access_points"]) == 3
     assert len(runtime_data["scan_positions"]) == 4
+    assert "route_comparison" in runtime_data
