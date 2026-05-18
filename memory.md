@@ -87,9 +87,17 @@
   Fehlerkennzahlen und Radiusfilter.
 - `src/wifi_input_matching.py` enthaelt die tolerante Eingabelogik.
 - `src/road_constraints.py` enthaelt das Strassen-/Fussweg-Snapping.
+- `src/route_estimation.py` enthaelt WKNN-Fingerprinting, Glaettung und
+  Laufweg-Vergleich.
 - In `.github/workflows/ci.yml` ist ein GitHub-Action-Workflow fuer
   automatische Tests angelegt. Die CI fuehrt zusaetzlich einen schnellen
   synthetischen Pipeline-Smoke-Test aus.
+- Fuer neue Chats liegt ein kompaktes Handover in
+  `docs/handover_next_chat.md`.
+- Naechster fachlich sinnvoller Schritt:
+  route-aware WKNN mit mehreren Kandidaten pro Scan und
+  Bewegungsplausibilitaet, um lange orange Fehlerlinien im Laufweg-Vergleich
+  weiter zu reduzieren.
 
 ### Bekannte Fakten zur CSV
 

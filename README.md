@@ -81,6 +81,7 @@ Wichtige fachliche Idee:
 |  |  |- route_comparison_wknn_matched_outliers.csv
 |  |  |- dataset_summary.txt
 |- docs/
+|  |- handover_next_chat.md
 |  |- professor_erklaerung.txt
 |- src/
 |  |- __init__.py
@@ -91,6 +92,7 @@ Wichtige fachliche Idee:
 |  |- preprocess_wifi_data.py
 |  |- project_pipeline.py
 |  |- road_constraints.py
+|  |- route_estimation.py
 |  |- visualize_wifi_data.py
 |  |- wifi_input_matching.py
 |- tests/
@@ -369,6 +371,12 @@ Die wichtigsten Projektentscheidungen sind kompakt dokumentiert in:
 
 ```text
 docs/professor_erklaerung.txt
+```
+
+Fuer die Uebergabe an einen neuen Chat gibt es ausserdem:
+
+```text
+docs/handover_next_chat.md
 ```
 
 ## Naechste moegliche Erweiterungen

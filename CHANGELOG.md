@@ -2,6 +2,13 @@
 
 Alle wichtigen Aenderungen am Projekt werden hier kurz protokolliert.
 
+## 2026-05-18
+
+- kompaktes Handover fuer den naechsten Chat in
+  `docs/handover_next_chat.md` dokumentiert.
+- README und Projektgedaechtnis um den Handover-Verweis, `route_estimation.py`
+  und den naechsten fachlichen Schwerpunkt fuer die WLAN-Routenlogik ergaenzt.
+
 ## 2026-05-12
 
 - route-aware Map-Matching fuer GPS- und WLAN-Laufweg ergaenzt:
