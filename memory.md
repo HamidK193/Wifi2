@@ -23,6 +23,14 @@
   - `triangulated_access_points.csv`
   - `triangulated_scan_positions.csv`
   - `route_comparison.csv`
+  - `route_comparison_wknn.csv`
+  - `route_comparison_wknn_clean.csv`
+  - `route_comparison_wknn_outliers.csv`
+  - `gps_route_raw.csv`
+  - `gps_route_matched.csv`
+  - `route_comparison_wknn_matched.csv`
+  - `route_comparison_wknn_matched_clean.csv`
+  - `route_comparison_wknn_matched_outliers.csv`
   - `wifi_scans_clean.csv`
   - `scan_summary.csv`
   - `network_observations.csv`
@@ -37,12 +45,25 @@
   Messpunkte, RSSI-Kreise und geschaetzte Routerstandorte zeigt.
 - Der Tab `Laufweg-Vergleich` zeigt echte GPS-Route gegen WLAN-geschaetzte
   Route:
-  - GPS-Laufweg rot
-  - WLAN-Laufweg blau
-  - Abweichung zwischen beiden orange
+  - GPS-Laufweg nach Weg-Matching rot
+  - Roh-GPS optional hellrot gestrichelt
+  - WLAN-Laufweg nach Weg-Matching blau
+  - Abweichung zwischen beiden orange gestrichelt
   - Pfeile zeigen die Bewegungsrichtung
 - Der Laufweg-Vergleich wird in `data/processed/route_comparison.csv`
   gespeichert und in der App nur geladen, nicht jedes Mal neu berechnet.
+- Fuer die Anzeige nutzt die App `route_comparison_clean.csv`; entfernte
+  Ausreisser werden in `route_comparison_outliers.csv` mit Grund gespeichert.
+- Fuer die Standardanzeige wird inzwischen bevorzugt
+  `route_comparison_wknn_matched_clean.csv` genutzt. Diese Route verwendet
+  WKNN-Fingerprinting, zeitliche Glaettung und danach route-aware
+  Strassen-/Fussweg-Matching fuer GPS und WLAN.
+- Roh-GPS bleibt in `gps_route_raw.csv`; die plausiblere GPS-Referenz fuer
+  den Vergleich liegt in `gps_route_matched.csv`.
+- Die alte Triangulationsroute bleibt als Fallback und Vergleich erhalten.
+- `main.py` arbeitet inkrementell: Wenn die schweren Basis-Artefakte bereits
+  existieren, werden nur fehlende schnelle Runtime-Artefakte wie WKNN-Routen
+  erzeugt.
 - Die Router-Schaetzung nutzt GPS-Kalibrierungsdaten, nicht gesnappte
   Nutzerstandorte.
 - Eine Router-Schaetzung ist erst gueltig, wenn mindestens 3 Scanpunkte fuer
@@ -89,6 +110,8 @@
 - Standort-Test ohne Roh-GPS im Hauptmodus betreiben
 - Router-Schaetzung mit Kreisprinzip im eigenen Tab demonstrieren
 - GPS-Laufweg und WLAN-Laufweg im eigenen Tab vergleichen
+- WLAN-Laufweg mit WKNN-Fingerprinting stabiler darstellen
+- GPS- und WLAN-Laufweg route-aware auf begehbare Wege begrenzen
 - automatische Tests und GitHub Actions stabil betreiben
 - Genauigkeit und Funktionalitaet per `pytest` absichern
 - Projekt klein und kursgerecht halten

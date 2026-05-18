@@ -69,6 +69,16 @@ Wichtige fachliche Idee:
 |  |  |- triangulated_access_points.csv
 |  |  |- triangulated_scan_positions.csv
 |  |  |- route_comparison.csv
+|  |  |- route_comparison_clean.csv
+|  |  |- route_comparison_outliers.csv
+|  |  |- route_comparison_wknn.csv
+|  |  |- route_comparison_wknn_clean.csv
+|  |  |- route_comparison_wknn_outliers.csv
+|  |  |- gps_route_raw.csv
+|  |  |- gps_route_matched.csv
+|  |  |- route_comparison_wknn_matched.csv
+|  |  |- route_comparison_wknn_matched_clean.csv
+|  |  |- route_comparison_wknn_matched_outliers.csv
 |  |  |- dataset_summary.txt
 |- docs/
 |  |- professor_erklaerung.txt
@@ -140,6 +150,16 @@ Nach `py main.py` werden diese Dateien erzeugt:
 - `triangulated_access_points.csv`
 - `triangulated_scan_positions.csv`
 - `route_comparison.csv`
+- `route_comparison_clean.csv`
+- `route_comparison_outliers.csv`
+- `route_comparison_wknn.csv`
+- `route_comparison_wknn_clean.csv`
+- `route_comparison_wknn_outliers.csv`
+- `gps_route_raw.csv`
+- `gps_route_matched.csv`
+- `route_comparison_wknn_matched.csv`
+- `route_comparison_wknn_matched_clean.csv`
+- `route_comparison_wknn_matched_outliers.csv`
 - `dataset_summary.txt`
 
 ## Browser-Anwendung
@@ -215,12 +235,24 @@ Wichtig:
 
 Der Tab `Laufweg-Vergleich` zeigt zwei Routen:
 
-- rote Linie: echter GPS-Laufweg aus den Kalibrierungsdaten
-- blaue Linie: WLAN-geschaetzter Laufweg
-- orange Linien: Abweichung zwischen GPS-Punkt und WLAN-Schaetzung
+- rote Linie: GPS-Laufweg nach Weg-Matching auf begehbare Wege
+- hellrote gestrichelte Linie: Roh-GPS vor dem Weg-Matching
+- blaue Linie: WLAN-geschaetzter Laufweg nach Weg-Matching
+- orange gestrichelte Linien: Abweichung zwischen GPS-Punkt und WLAN-Schaetzung
 - Pfeile auf den Linien zeigen die Laufrichtung
 
-Die WLAN-Route wird mit einer einfachen Feder-/Kreislogik berechnet:
+Die App bevorzugt fuer diese Ansicht inzwischen eine robustere
+WKNN-Fingerprint-Route:
+
+- jeder Scan wird als RSSI-Fingerabdruck aus mehreren `SSID+BSSID`-Werten
+  betrachtet
+- aehnliche alte Referenzscans werden gesucht
+- die naechsten Referenzscans bestimmen den WLAN-Standort als gewichteten
+  Mittelwert
+- danach wird die Route zeitlich geglaettet und auf begehbare Wege gesnappt
+
+Die vorherige Feder-/Kreislogik bleibt als Vergleichs- und Fallback-Route
+erhalten:
 
 - starke Signale ziehen die Schaetzung staerker zu einem Access Point
 - schwache Signale ziehen weniger stark
@@ -229,8 +261,42 @@ Die WLAN-Route wird mit einer einfachen Feder-/Kreislogik berechnet:
 - die resultierende Nutzerposition wird danach auf Strasse/Fussweg gesnappt
 
 Der Laufweg-Vergleich wird nicht bei jedem App-Start neu berechnet. `main.py`
-erzeugt die Datei `data/processed/route_comparison.csv`; die App laedt danach
-nur noch diese gespeicherten Daten.
+erzeugt bzw. aktualisiert die gespeicherten CSV-Dateien; die App laedt danach
+nur noch diese fertigen Daten.
+
+Fuer die Standardanzeige wird bevorzugt
+`data/processed/route_comparison_wknn_matched_clean.csv` genutzt. Falls diese
+Datei fehlt, faellt die App zuerst auf `route_comparison_wknn_clean.csv` und
+danach auf `route_comparison_clean.csv` zurueck. Ausreisser werden jeweils
+getrennt dokumentiert, damit die Rohdaten nachvollziehbar bleiben.
+
+Das Weg-Matching funktioniert route-aware:
+
+- pro GPS- oder WLAN-Punkt werden mehrere begehbare OSM-Wege als Kandidaten
+  betrachtet
+- Fusswege und Fussgaengerbereiche werden gegenueber grossen Strassen
+  bevorzugt
+- der Verlauf der Route wird mitbewertet, damit einzelne Punkte nicht
+  unplausibel auf Parallelwege springen
+- Roh-GPS bleibt in `gps_route_raw.csv` erhalten
+- die gematchte GPS-Referenz liegt in `gps_route_matched.csv`
+
+Die rechte Auswertung zeigt z. B.:
+
+- aktive Methode: `WKNN-Fingerprinting` oder `Triangulation`
+- Rohpunkte
+- verwendete Punkte
+- entfernte Ausreisser
+- Mittelwert, Median, 90%-Fehler und maximalen Fehler
+- einfache Qualitaetsbewertung
+
+Unter der Karte steht eine Legende fuer Farben, Punktqualitaet und
+Strichelungen.
+
+Damit die Karte fluessig bleibt, werden die roten und blauen Laufweg-Linien
+vollstaendig angezeigt, aber Detailmarker und orange Fehlerlinien nur reduziert
+gerendert. Ausserdem wird nur auf OSM-Wege gesnappt, wenn diese in sinnvoller
+Naehe liegen.
 
 ## Uebungsdateien
 
@@ -268,6 +334,10 @@ py -m pip install -r requirements.txt
 ```bash
 py main.py
 ```
+
+Wenn die schweren Basis-Artefakte in `data/processed/` bereits existieren,
+aktualisiert `main.py` nur noch die schnellen Laufweg-Artefakte. Dadurch muss
+die App den Laufweg nicht live im Browser berechnen.
 
 ## Ausfuehrung Browser-App
 

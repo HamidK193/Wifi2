@@ -7,6 +7,8 @@ from folium.plugins import PolyLineTextPath
 
 from src.road_constraints import WALKABLE_HIGHWAY_TYPES
 
+MAX_ROUTE_DETAIL_POINTS = 120
+
 
 def load_osm_map(osm_path: str | Path) -> dict[str, object]:
     path = Path(osm_path)
@@ -535,7 +537,8 @@ def add_route_comparison_markers(router_map: folium.Map, route_comparison: pd.Da
             tooltip="Aufgezeichnete GPS-Route",
         ).add_to(comparison_group)
 
-    for _, row in valid_rows.iterrows():
+    detail_rows = _sample_route_detail_rows(valid_rows)
+    for _, row in detail_rows.iterrows():
         folium.CircleMarker(
             location=[row["actual_latitude"], row["actual_longitude"]],
             radius=3,
@@ -606,6 +609,17 @@ def add_gps_and_wifi_routes(route_map: folium.Map, route_estimates: pd.DataFrame
     route_group = folium.FeatureGroup(name="GPS- und WLAN-Laufweg", show=True)
     gps_route = valid_rows[["actual_latitude", "actual_longitude"]].values.tolist()
     wifi_route = valid_rows[["estimated_latitude", "estimated_longitude"]].values.tolist()
+    if {"raw_actual_latitude", "raw_actual_longitude"}.issubset(valid_rows.columns):
+        raw_gps_route = valid_rows[["raw_actual_latitude", "raw_actual_longitude"]].dropna().values.tolist()
+        if len(raw_gps_route) >= 2:
+            folium.PolyLine(
+                locations=raw_gps_route,
+                color="#fca5a5",
+                weight=2,
+                opacity=0.75,
+                dash_array="8, 8",
+                tooltip="Roh-GPS vor Weg-Matching",
+            ).add_to(route_group)
 
     if len(gps_route) >= 2:
         gps_line = folium.PolyLine(
@@ -642,6 +656,7 @@ def add_gps_and_wifi_routes(route_map: folium.Map, route_estimates: pd.DataFrame
         ).add_to(route_group)
 
     for _, row in valid_rows.iterrows():
+        wifi_quality_color = _route_quality_color(float(row["error_m"]))
         folium.CircleMarker(
             location=[row["actual_latitude"], row["actual_longitude"]],
             radius=3,
@@ -657,9 +672,9 @@ def add_gps_and_wifi_routes(route_map: folium.Map, route_estimates: pd.DataFrame
         folium.CircleMarker(
             location=[row["estimated_latitude"], row["estimated_longitude"]],
             radius=4,
-            color="#1d4ed8",
+            color=wifi_quality_color,
             fill=True,
-            fill_color="#2563eb",
+            fill_color=wifi_quality_color,
             fill_opacity=0.9,
             weight=2,
             tooltip=f"WLAN {row['scan_id']}",
@@ -684,15 +699,30 @@ def add_gps_and_wifi_routes(route_map: folium.Map, route_estimates: pd.DataFrame
             tooltip=f"Abweichung {row['error_m']:.1f} m",
         )
         error_line.add_to(route_group)
-        PolyLineTextPath(
-            error_line,
-            ">",
-            repeat=True,
-            offset=7,
-            attributes={"fill": "#f97316", "font-weight": "bold", "font-size": "12"},
-        ).add_to(route_group)
 
     route_group.add_to(route_map)
+
+
+def _route_quality_color(error_m: float) -> str:
+    if error_m <= 20:
+        return "#16a34a"
+    if error_m <= 50:
+        return "#2563eb"
+    if error_m <= 100:
+        return "#f97316"
+    return "#dc2626"
+
+
+def _sample_route_detail_rows(route_rows: pd.DataFrame, max_points: int = MAX_ROUTE_DETAIL_POINTS) -> pd.DataFrame:
+    if len(route_rows) <= max_points:
+        return route_rows
+
+    step = max(1, len(route_rows) // max_points)
+    sampled = route_rows.iloc[::step].copy()
+    last_row = route_rows.tail(1)
+    if sampled.iloc[-1]["scan_id"] != last_row.iloc[0]["scan_id"]:
+        sampled = pd.concat([sampled, last_row], ignore_index=True)
+    return sampled
 
 
 def fit_map_to_bounds(

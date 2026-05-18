@@ -21,7 +21,18 @@ from src.preprocess_wifi_data import (
     save_scan_summary,
     summarize_dataset,
 )
-from src.route_estimation import ROUTE_ESTIMATE_COLUMNS, build_wifi_route_from_scan_positions, save_route_estimates
+from src.route_estimation import (
+    GPS_ROUTE_COLUMNS,
+    ROUTE_ESTIMATE_COLUMNS,
+    ROUTE_QUALITY_COLUMNS,
+    add_route_quality_flags,
+    build_gps_route_matched,
+    build_gps_route_raw,
+    build_route_comparison_with_matched_gps,
+    build_wifi_route_from_scan_positions,
+    build_wknn_route_comparison,
+    save_route_estimates,
+)
 from src.visualize_wifi_data import load_osm_map
 
 RUNTIME_FILE_NAMES = {
@@ -32,7 +43,30 @@ RUNTIME_FILE_NAMES = {
     "access_points": "triangulated_access_points.csv",
     "scan_positions": "triangulated_scan_positions.csv",
     "route_comparison": "route_comparison.csv",
+    "route_comparison_clean": "route_comparison_clean.csv",
+    "route_comparison_outliers": "route_comparison_outliers.csv",
+    "route_comparison_wknn": "route_comparison_wknn.csv",
+    "route_comparison_wknn_clean": "route_comparison_wknn_clean.csv",
+    "route_comparison_wknn_outliers": "route_comparison_wknn_outliers.csv",
+    "gps_route_raw": "gps_route_raw.csv",
+    "gps_route_matched": "gps_route_matched.csv",
+    "route_comparison_wknn_matched": "route_comparison_wknn_matched.csv",
+    "route_comparison_wknn_matched_clean": "route_comparison_wknn_matched_clean.csv",
+    "route_comparison_wknn_matched_outliers": "route_comparison_wknn_matched_outliers.csv",
     "dataset_summary": "dataset_summary.txt",
+}
+OPTIONAL_RUNTIME_KEYS = {
+    "route_comparison",
+    "route_comparison_clean",
+    "route_comparison_outliers",
+    "route_comparison_wknn",
+    "route_comparison_wknn_clean",
+    "route_comparison_wknn_outliers",
+    "gps_route_raw",
+    "gps_route_matched",
+    "route_comparison_wknn_matched",
+    "route_comparison_wknn_matched_clean",
+    "route_comparison_wknn_matched_outliers",
 }
 
 
@@ -68,13 +102,56 @@ def run_data_pipeline(
     network_observations = create_network_observations(runtime_dataframe, scan_positions)
     network_summary = create_network_summary(network_observations)
     route_comparison = pd.DataFrame(columns=ROUTE_ESTIMATE_COLUMNS)
+    route_comparison_wknn = pd.DataFrame(columns=ROUTE_ESTIMATE_COLUMNS)
+    gps_route_raw = pd.DataFrame(columns=["scan_id", "timestamp", "latitude", "longitude"])
+    gps_route_matched = pd.DataFrame(columns=GPS_ROUTE_COLUMNS)
+    route_comparison_wknn_matched = pd.DataFrame(columns=ROUTE_ESTIMATE_COLUMNS)
     if osm_path is not None and Path(osm_path).exists():
+        osm_map = load_osm_map(osm_path)
+        gps_route_raw = build_gps_route_raw(calibration_dataframe)
+        gps_route_matched = build_gps_route_matched(calibration_dataframe, osm_map)
         route_comparison = build_wifi_route_from_scan_positions(
             calibration_dataframe,
             scan_positions,
-            load_osm_map(osm_path),
+            osm_map,
             min_matches=2,
         )
+        route_comparison_wknn = build_wknn_route_comparison(
+            calibration_dataframe,
+            osm_map,
+            k=5,
+            min_matches=3,
+        )
+        route_comparison_wknn_matched = build_route_comparison_with_matched_gps(
+            route_comparison_wknn,
+            gps_route_matched,
+            osm_map,
+        )
+    route_quality = add_route_quality_flags(route_comparison)
+    route_comparison_clean = route_quality.loc[~route_quality["is_outlier"]].reset_index(drop=True)
+    route_comparison_outliers = route_quality.loc[route_quality["is_outlier"]].reset_index(drop=True)
+    route_wknn_quality = add_route_quality_flags(
+        route_comparison_wknn,
+        min_aps=3,
+        max_rmse_m=45,
+        max_error_m=100,
+        max_jump_m=80,
+    )
+    route_comparison_wknn_clean = route_wknn_quality.loc[~route_wknn_quality["is_outlier"]].reset_index(drop=True)
+    route_comparison_wknn_outliers = route_wknn_quality.loc[route_wknn_quality["is_outlier"]].reset_index(drop=True)
+    route_wknn_matched_quality = add_route_quality_flags(
+        route_comparison_wknn_matched,
+        min_aps=3,
+        max_rmse_m=45,
+        max_error_m=100,
+        max_jump_m=80,
+    )
+    route_comparison_wknn_matched_clean = route_wknn_matched_quality.loc[
+        ~route_wknn_matched_quality["is_outlier"]
+    ].reset_index(drop=True)
+    route_comparison_wknn_matched_outliers = route_wknn_matched_quality.loc[
+        route_wknn_matched_quality["is_outlier"]
+    ].reset_index(drop=True)
     dataset_summary = summarize_dataset(runtime_dataframe, scan_summary)
 
     clean_path = save_cleaned_data(runtime_dataframe, output_dir / RUNTIME_FILE_NAMES["cleaned_dataframe"])
@@ -99,6 +176,46 @@ def run_data_pipeline(
         route_comparison,
         output_dir / RUNTIME_FILE_NAMES["route_comparison"],
     )
+    route_comparison_clean_path = save_route_estimates(
+        route_comparison_clean,
+        output_dir / RUNTIME_FILE_NAMES["route_comparison_clean"],
+    )
+    route_comparison_outliers_path = save_route_estimates(
+        route_comparison_outliers,
+        output_dir / RUNTIME_FILE_NAMES["route_comparison_outliers"],
+    )
+    route_comparison_wknn_path = save_route_estimates(
+        route_comparison_wknn,
+        output_dir / RUNTIME_FILE_NAMES["route_comparison_wknn"],
+    )
+    route_comparison_wknn_clean_path = save_route_estimates(
+        route_comparison_wknn_clean,
+        output_dir / RUNTIME_FILE_NAMES["route_comparison_wknn_clean"],
+    )
+    route_comparison_wknn_outliers_path = save_route_estimates(
+        route_comparison_wknn_outliers,
+        output_dir / RUNTIME_FILE_NAMES["route_comparison_wknn_outliers"],
+    )
+    gps_route_raw_path = save_route_estimates(
+        gps_route_raw,
+        output_dir / RUNTIME_FILE_NAMES["gps_route_raw"],
+    )
+    gps_route_matched_path = save_route_estimates(
+        gps_route_matched,
+        output_dir / RUNTIME_FILE_NAMES["gps_route_matched"],
+    )
+    route_comparison_wknn_matched_path = save_route_estimates(
+        route_comparison_wknn_matched,
+        output_dir / RUNTIME_FILE_NAMES["route_comparison_wknn_matched"],
+    )
+    route_comparison_wknn_matched_clean_path = save_route_estimates(
+        route_comparison_wknn_matched_clean,
+        output_dir / RUNTIME_FILE_NAMES["route_comparison_wknn_matched_clean"],
+    )
+    route_comparison_wknn_matched_outliers_path = save_route_estimates(
+        route_comparison_wknn_matched_outliers,
+        output_dir / RUNTIME_FILE_NAMES["route_comparison_wknn_matched_outliers"],
+    )
     summary_path = save_dataset_summary(dataset_summary, output_dir / RUNTIME_FILE_NAMES["dataset_summary"])
 
     return {
@@ -111,6 +228,16 @@ def run_data_pipeline(
         "access_points": access_points,
         "scan_positions": scan_positions,
         "route_comparison": route_comparison,
+        "route_comparison_clean": route_comparison_clean,
+        "route_comparison_outliers": route_comparison_outliers,
+        "route_comparison_wknn": route_comparison_wknn,
+        "route_comparison_wknn_clean": route_comparison_wknn_clean,
+        "route_comparison_wknn_outliers": route_comparison_wknn_outliers,
+        "gps_route_raw": gps_route_raw,
+        "gps_route_matched": gps_route_matched,
+        "route_comparison_wknn_matched": route_comparison_wknn_matched,
+        "route_comparison_wknn_matched_clean": route_comparison_wknn_matched_clean,
+        "route_comparison_wknn_matched_outliers": route_comparison_wknn_matched_outliers,
         "dataset_summary": dataset_summary,
         "output_paths": [
             clean_path,
@@ -120,6 +247,16 @@ def run_data_pipeline(
             access_point_path,
             scan_position_path,
             route_comparison_path,
+            route_comparison_clean_path,
+            route_comparison_outliers_path,
+            route_comparison_wknn_path,
+            route_comparison_wknn_clean_path,
+            route_comparison_wknn_outliers_path,
+            gps_route_raw_path,
+            gps_route_matched_path,
+            route_comparison_wknn_matched_path,
+            route_comparison_wknn_matched_clean_path,
+            route_comparison_wknn_matched_outliers_path,
             summary_path,
         ],
     }
@@ -129,8 +266,8 @@ def load_runtime_data(processed_dir: str | Path) -> dict[str, object]:
     base_dir = Path(processed_dir)
     missing_files = [
         file_name
-        for file_name in RUNTIME_FILE_NAMES.values()
-        if not (base_dir / file_name).exists()
+        for key, file_name in RUNTIME_FILE_NAMES.items()
+        if key not in OPTIONAL_RUNTIME_KEYS and not (base_dir / file_name).exists()
     ]
     if missing_files:
         missing_text = ", ".join(missing_files)
@@ -146,7 +283,57 @@ def load_runtime_data(processed_dir: str | Path) -> dict[str, object]:
     if route_comparison_path.exists():
         route_comparison = pd.read_csv(route_comparison_path, parse_dates=["timestamp"])
     else:
-        route_comparison = pd.DataFrame()
+        route_comparison = pd.DataFrame(columns=ROUTE_ESTIMATE_COLUMNS)
+    route_comparison_clean_path = base_dir / RUNTIME_FILE_NAMES["route_comparison_clean"]
+    if route_comparison_clean_path.exists():
+        route_comparison_clean = pd.read_csv(route_comparison_clean_path, parse_dates=["timestamp"])
+    else:
+        route_comparison_clean = pd.DataFrame(columns=ROUTE_QUALITY_COLUMNS)
+    route_comparison_outliers_path = base_dir / RUNTIME_FILE_NAMES["route_comparison_outliers"]
+    if route_comparison_outliers_path.exists():
+        route_comparison_outliers = pd.read_csv(route_comparison_outliers_path, parse_dates=["timestamp"])
+    else:
+        route_comparison_outliers = pd.DataFrame(columns=ROUTE_QUALITY_COLUMNS)
+    route_comparison_wknn_path = base_dir / RUNTIME_FILE_NAMES["route_comparison_wknn"]
+    if route_comparison_wknn_path.exists():
+        route_comparison_wknn = pd.read_csv(route_comparison_wknn_path, parse_dates=["timestamp"])
+    else:
+        route_comparison_wknn = pd.DataFrame(columns=ROUTE_ESTIMATE_COLUMNS)
+    route_comparison_wknn_clean_path = base_dir / RUNTIME_FILE_NAMES["route_comparison_wknn_clean"]
+    if route_comparison_wknn_clean_path.exists():
+        route_comparison_wknn_clean = pd.read_csv(route_comparison_wknn_clean_path, parse_dates=["timestamp"])
+    else:
+        route_comparison_wknn_clean = pd.DataFrame(columns=ROUTE_QUALITY_COLUMNS)
+    route_comparison_wknn_outliers_path = base_dir / RUNTIME_FILE_NAMES["route_comparison_wknn_outliers"]
+    if route_comparison_wknn_outliers_path.exists():
+        route_comparison_wknn_outliers = pd.read_csv(route_comparison_wknn_outliers_path, parse_dates=["timestamp"])
+    else:
+        route_comparison_wknn_outliers = pd.DataFrame(columns=ROUTE_QUALITY_COLUMNS)
+    gps_route_raw = _load_optional_runtime_csv(
+        base_dir / RUNTIME_FILE_NAMES["gps_route_raw"],
+        columns=["scan_id", "timestamp", "latitude", "longitude"],
+        parse_dates=["timestamp"],
+    )
+    gps_route_matched = _load_optional_runtime_csv(
+        base_dir / RUNTIME_FILE_NAMES["gps_route_matched"],
+        columns=GPS_ROUTE_COLUMNS,
+        parse_dates=["timestamp"],
+    )
+    route_comparison_wknn_matched = _load_optional_runtime_csv(
+        base_dir / RUNTIME_FILE_NAMES["route_comparison_wknn_matched"],
+        columns=ROUTE_ESTIMATE_COLUMNS,
+        parse_dates=["timestamp"],
+    )
+    route_comparison_wknn_matched_clean = _load_optional_runtime_csv(
+        base_dir / RUNTIME_FILE_NAMES["route_comparison_wknn_matched_clean"],
+        columns=ROUTE_QUALITY_COLUMNS,
+        parse_dates=["timestamp"],
+    )
+    route_comparison_wknn_matched_outliers = _load_optional_runtime_csv(
+        base_dir / RUNTIME_FILE_NAMES["route_comparison_wknn_matched_outliers"],
+        columns=ROUTE_QUALITY_COLUMNS,
+        parse_dates=["timestamp"],
+    )
     dataset_summary = load_dataset_summary(base_dir / RUNTIME_FILE_NAMES["dataset_summary"])
 
     return {
@@ -157,6 +344,16 @@ def load_runtime_data(processed_dir: str | Path) -> dict[str, object]:
         "access_points": access_points,
         "scan_positions": scan_positions,
         "route_comparison": route_comparison,
+        "route_comparison_clean": route_comparison_clean,
+        "route_comparison_outliers": route_comparison_outliers,
+        "route_comparison_wknn": route_comparison_wknn,
+        "route_comparison_wknn_clean": route_comparison_wknn_clean,
+        "route_comparison_wknn_outliers": route_comparison_wknn_outliers,
+        "gps_route_raw": gps_route_raw,
+        "gps_route_matched": gps_route_matched,
+        "route_comparison_wknn_matched": route_comparison_wknn_matched,
+        "route_comparison_wknn_matched_clean": route_comparison_wknn_matched_clean,
+        "route_comparison_wknn_matched_outliers": route_comparison_wknn_matched_outliers,
         "dataset_summary": dataset_summary,
     }
 
@@ -177,3 +374,14 @@ def load_dataset_summary(summary_path: str | Path) -> dict[str, object]:
             summary[key.strip()] = parsed_value
 
     return summary
+
+
+def _load_optional_runtime_csv(
+    path: Path,
+    *,
+    columns: list[str],
+    parse_dates: list[str] | None = None,
+) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame(columns=columns)
+    return pd.read_csv(path, parse_dates=parse_dates)

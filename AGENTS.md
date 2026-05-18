@@ -37,6 +37,10 @@ fuer dieses Repository.
   geschaetztem Routerstandort bereitstellen
 - eigenen Tab fuer Laufweg-Vergleich mit GPS-Route, WLAN-Route,
   Richtungspfeilen und Fehlerlinien bereitstellen
+- Laufweg-Vergleich bevorzugt mit WKNN-Fingerprinting, zeitlicher Glaettung
+  und Strassen-/Fussweg-Snapping aus gespeicherten CSV-Artefakten anzeigen
+- GPS- und WLAN-Laufweg fuer den Vergleich route-aware auf plausible
+  begehbare OSM-Wege matchen
 - Kreis-Ueberlagerung fuer spaetere Router- oder Standortabschaetzung
   intern vorbereiten und im Router-Schaetzungs-Tab nachvollziehbar anzeigen
 - automatisierte Tests und GitHub Actions pflegen
@@ -69,8 +73,12 @@ fuer dieses Repository.
 11. Router-Schaetzung aus mindestens 3 RSSI-Kreisen im eigenen Tab anzeigen
 12. Fallback-Schaetzung fuer weniger als 3 Kreise nachvollziehbar markieren
 13. GPS-Laufweg und WLAN-Laufweg im eigenen Tab vergleichen
-14. Funktionalitaet, Performance und Genauigkeit per Tests absichern
-15. Dokumentation aktualisieren
+14. WKNN-Fingerprint-Route vorberechnen und als Standardroute fuer die App
+    speichern
+15. GPS- und WLAN-Laufweg route-aware map-matchen und Rohdaten separat
+    nachvollziehbar speichern
+16. Funktionalitaet, Performance und Genauigkeit per Tests absichern
+17. Dokumentation aktualisieren
 
 ### Spaetere Erweiterungen
 

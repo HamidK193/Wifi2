@@ -2,6 +2,31 @@
 
 Alle wichtigen Aenderungen am Projekt werden hier kurz protokolliert.
 
+## 2026-05-12
+
+- route-aware Map-Matching fuer GPS- und WLAN-Laufweg ergaenzt:
+  GPS wird auf plausible begehbare Wege gesetzt, WLAN danach ebenfalls.
+- neue Artefakte erzeugt: `gps_route_raw.csv`, `gps_route_matched.csv`,
+  `route_comparison_wknn_matched.csv`,
+  `route_comparison_wknn_matched_clean.csv` und
+  `route_comparison_wknn_matched_outliers.csv`.
+- Laufweg-Tab nutzt bevorzugt die matched WKNN-Route und zeigt unter der Karte
+  eine Legende fuer Farben, Strichelungen und Punktqualitaet.
+- WKNN-Fingerprinting fuer den Laufweg-Vergleich ergaenzt:
+  aehnliche RSSI-Fingerabdruecke aus Referenzscans werden gewichtet gemittelt.
+- Laufweg-Schaetzungen werden nach WKNN zeitlich geglaettet und danach wieder
+  auf begehbare OSM-Wege gesnappt.
+- neue gespeicherte Artefakte erzeugt:
+  `route_comparison_wknn.csv`, `route_comparison_wknn_clean.csv` und
+  `route_comparison_wknn_outliers.csv`.
+- App nutzt im Laufweg-Tab bevorzugt die bereinigte WKNN-Route und faellt bei
+  fehlender Datei auf die alte Triangulationsroute zurueck.
+- rechte Laufweg-Auswertung erweitert um aktive Methode, Rohpunkte,
+  entfernte Ausreisser, 90%-Fehler und Qualitaetslabel.
+- `main.py` inkrementell gemacht: vorhandene schwere Basisdaten werden
+  wiederverwendet, fehlende Laufweg-Artefakte werden schnell nacherzeugt.
+- Tests fuer WKNN, Glaettung und Laufweg-Qualitaet ergaenzt.
+
 ## 2026-05-07
 
 - neuen Tab `Laufweg-Vergleich` ergaenzt: reale GPS-Route als rote Linie,
@@ -9,6 +34,11 @@ Alle wichtigen Aenderungen am Projekt werden hier kurz protokolliert.
   Richtungspfeilen.
 - `route_comparison.csv` als gespeichertes Runtime-Artefakt ergaenzt, damit
   der Laufweg-Vergleich nicht bei jedem App-Start neu berechnet wird.
+- Laufweg-Karte performanter gemacht: falsches Weit-Snapping auf entfernte
+  OSM-Wege verhindert und Detailmarker/Fehlerlinien reduziert.
+- Ausreisser-Filter fuer den Laufweg-Vergleich ergaenzt:
+  `route_comparison_clean.csv` fuer die App und
+  `route_comparison_outliers.csv` fuer entfernte Punkte mit Begruendung.
 - Feder-/Fallback-Logik fuer wenige Kreise ergaenzt: bei 2 Kreisen wird ein
   Schnitt-/Zwischenpunkt genutzt, bei unsicheren Kreisen eine gewichtete
   Feder-Schaetzung.

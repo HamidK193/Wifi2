@@ -14,7 +14,7 @@ from src.localization_logic import (
 from src.preprocess_wifi_data import clean_wifi_data
 from src.project_pipeline import load_runtime_data
 from src.road_constraints import snap_position_to_nearest_road
-from src.route_estimation import summarize_wifi_route
+from src.route_estimation import summarize_route_quality, summarize_wifi_route
 from src.visualize_wifi_data import (
     build_route_estimation_map,
     build_router_estimation_map,
@@ -41,7 +41,8 @@ SSID_COLORS = [
 
 
 @st.cache_data(show_spinner=False)
-def load_runtime_bundle() -> dict[str, object]:
+def load_runtime_bundle(processed_signature: tuple[tuple[str, float], ...]) -> dict[str, object]:
+    _ = processed_signature
     return load_runtime_data(PROCESSED_DIR)
 
 
@@ -65,6 +66,45 @@ def load_router_calibration_bundle() -> dict[str, pd.DataFrame]:
     }
 
 
+def build_processed_signature() -> tuple[tuple[str, float], ...]:
+    if not PROCESSED_DIR.exists():
+        return tuple()
+
+    return tuple(
+        sorted(
+            (path.name, path.stat().st_mtime)
+            for path in PROCESSED_DIR.glob("*.csv")
+        )
+    )
+
+
+def select_route_display_data(runtime_data: dict[str, object]) -> dict[str, object]:
+    matched_clean = runtime_data.get("route_comparison_wknn_matched_clean", pd.DataFrame())
+    if isinstance(matched_clean, pd.DataFrame) and not matched_clean.empty:
+        return {
+            "clean": matched_clean,
+            "raw": runtime_data.get("route_comparison_wknn_matched", pd.DataFrame()),
+            "outliers": runtime_data.get("route_comparison_wknn_matched_outliers", pd.DataFrame()),
+            "method_label": "WKNN + route-aware Map-Matching",
+        }
+
+    wknn_clean = runtime_data.get("route_comparison_wknn_clean", pd.DataFrame())
+    if isinstance(wknn_clean, pd.DataFrame) and not wknn_clean.empty:
+        return {
+            "clean": wknn_clean,
+            "raw": runtime_data.get("route_comparison_wknn", pd.DataFrame()),
+            "outliers": runtime_data.get("route_comparison_wknn_outliers", pd.DataFrame()),
+            "method_label": "WKNN-Fingerprinting",
+        }
+
+    return {
+        "clean": runtime_data.get("route_comparison_clean", pd.DataFrame()),
+        "raw": runtime_data.get("route_comparison", pd.DataFrame()),
+        "outliers": runtime_data.get("route_comparison_outliers", pd.DataFrame()),
+        "method_label": "Triangulation",
+    }
+
+
 def main() -> None:
     st.set_page_config(page_title="WiFi Standorttest", layout="wide")
     st.title("WiFi-Standorttest")
@@ -78,7 +118,7 @@ def main() -> None:
         return
 
     try:
-        runtime_data = load_runtime_bundle()
+        runtime_data = load_runtime_bundle(build_processed_signature())
     except FileNotFoundError as error:
         st.error("Verarbeitete Artefakte fehlen. Starte zuerst `py main.py`.")
         st.caption(str(error))
@@ -97,7 +137,14 @@ def main() -> None:
         render_router_estimation_tab(osm_map)
 
     with route_tab:
-        render_route_comparison_tab(runtime_data.get("route_comparison", pd.DataFrame()), osm_map)
+        route_data = select_route_display_data(runtime_data)
+        render_route_comparison_tab(
+            route_data["clean"],
+            route_data["raw"],
+            route_data["outliers"],
+            route_data["method_label"],
+            osm_map,
+        )
 
 
 def render_location_tab(
@@ -185,32 +232,51 @@ def render_router_estimation_tab(osm_map: dict[str, object]) -> None:
         )
 
 
-def render_route_comparison_tab(route_estimates: pd.DataFrame, osm_map: dict[str, object]) -> None:
+def render_route_comparison_tab(
+    route_estimates: pd.DataFrame,
+    raw_route_estimates: pd.DataFrame,
+    outlier_route_estimates: pd.DataFrame,
+    method_label: str,
+    osm_map: dict[str, object],
+) -> None:
     st.subheader("GPS-Laufweg vs. WLAN-Laufweg")
+    st.caption(f"Aktive Methode: {method_label}")
     st.write(
         "Die rote Linie ist der echte GPS-Laufweg. Die blaue Linie ist der nur aus WLAN-Signalen "
         "geschaetzte Laufweg. Orange Linien zeigen die Abweichung zwischen GPS-Punkt und WLAN-Schaetzung."
     )
 
     if route_estimates.empty:
-        st.warning("Laufweg-Vergleich fehlt. Starte zuerst `py main.py`, damit route_comparison.csv erzeugt wird.")
+        st.warning(
+            "Bereinigter Laufweg-Vergleich fehlt. Starte einmal `py main.py`, "
+            "damit die gespeicherten Laufweg-Dateien erzeugt werden."
+        )
         return
 
-    min_matches = st.slider(
-        "Minimale AP-Treffer fuer WLAN-Laufweg",
-        min_value=1,
-        max_value=6,
-        value=2,
-        key="route_min_matches",
-    )
-    route_estimates = route_estimates.loc[route_estimates["matched_access_points"] >= min_matches].copy()
     route_map = build_route_estimation_map(osm_map, route_estimates)
 
     left_column, right_column = st.columns([2.3, 1])
     with left_column:
         st_folium(route_map, use_container_width=True, height=720, key="route_comparison_map")
+        render_route_legend()
     with right_column:
-        render_route_result_panel(route_estimates)
+        render_route_result_panel(route_estimates, raw_route_estimates, outlier_route_estimates, method_label)
+
+
+def render_route_legend() -> None:
+    st.markdown(
+        """
+        **Legende**
+
+        - **Rot:** GPS-Referenzroute auf begehbare Wege gematcht
+        - **Hellrot gestrichelt:** Roh-GPS-Verlauf vor dem Weg-Matching
+        - **Blau:** WLAN-geschaetzte Route nach Fingerprinting, Glaettung und Weg-Matching
+        - **Orange gestrichelt:** Abstand zwischen GPS-Referenz und WLAN-Schaetzung
+        - **Gruene Punkte:** gute WLAN-Schaetzung bis ca. 20 m Fehler
+        - **Blaue Punkte:** mittlere WLAN-Schaetzung bis ca. 50 m Fehler
+        - **Orange/rote Punkte:** schwache Schaetzung oder ausreissernah
+        """
+    )
 
 
 def render_location_inputs(access_points: pd.DataFrame) -> tuple[str, int, bool]:
@@ -360,38 +426,92 @@ def render_router_result_panel(
         st.info("Schnittpunkte werden nur fuer eine konkrete SSID+BSSID berechnet.")
 
 
-def render_route_result_panel(route_estimates: pd.DataFrame) -> None:
+def render_route_result_panel(
+    route_estimates: pd.DataFrame,
+    raw_route_estimates: pd.DataFrame,
+    outlier_route_estimates: pd.DataFrame,
+    method_label: str,
+) -> None:
     st.subheader("Laufweg-Auswertung")
     if route_estimates.empty:
         st.warning("Es konnten keine WLAN-Laufwegpunkte geschaetzt werden.")
         return
 
     summary = summarize_wifi_route(route_estimates)
+    quality = summarize_route_quality(route_estimates)
+    raw_count = len(raw_route_estimates) if isinstance(raw_route_estimates, pd.DataFrame) else 0
+    outlier_count = len(outlier_route_estimates) if isinstance(outlier_route_estimates, pd.DataFrame) else 0
+
+    st.write(f"Methode: `{method_label}`")
+    st.write(f"Qualitaet: `{quality['quality_label']}`")
+    if raw_count:
+        st.metric("Rohpunkte", raw_count)
     st.metric("Verglichene Scans", summary["estimated_scans"])
+    if raw_count:
+        st.metric("Entfernte Ausreisser", outlier_count)
     st.metric("Mittlerer Fehler", f"{summary['mean_error_m']:.1f} m")
     st.metric("Median-Fehler", f"{summary['median_error_m']:.1f} m")
+    if quality["p90_error_m"] is not None:
+        st.metric("90%-Fehler", f"{quality['p90_error_m']:.1f} m")
     st.metric("Max. Fehler", f"{summary['max_error_m']:.1f} m")
+    if "gps_snap_distance_m" in route_estimates.columns:
+        st.metric("GPS-Snap im Mittel", f"{route_estimates['gps_snap_distance_m'].mean():.1f} m")
+    if "snap_distance_m" in route_estimates.columns:
+        st.metric("WLAN-Snap im Mittel", f"{route_estimates['snap_distance_m'].mean():.1f} m")
 
     st.write("Farben:")
     st.write("GPS-Laufweg: rot")
-    st.write("WLAN-Laufweg: blau")
+    st.write("WLAN-Laufweg: blau, Marker nach Fehlerqualitaet")
     st.write("Abweichung GPS zu WLAN: orange")
 
     with st.expander("Scan-Details"):
+        detail_columns = [
+            "scan_id",
+            "matched_access_points",
+            "residual_rmse",
+            "snap_distance_m",
+            "error_m",
+            "method",
+            "gps_snap_distance_m",
+            "gps_road_type",
+            "wifi_road_type",
+        ]
+        available_columns = [column for column in detail_columns if column in route_estimates.columns]
         st.dataframe(
-            route_estimates[
-                [
-                    "scan_id",
-                    "matched_access_points",
-                    "residual_rmse",
-                    "snap_distance_m",
-                    "error_m",
-                    "method",
-                ]
-            ],
+            route_estimates[available_columns],
             use_container_width=True,
             hide_index=True,
         )
+
+    if not outlier_route_estimates.empty:
+        reason_counts = (
+            outlier_route_estimates["outlier_reason"]
+            .astype(str)
+            .str.split(";")
+            .explode()
+            .value_counts()
+            .rename_axis("Grund")
+            .reset_index(name="Anzahl")
+        )
+        if not reason_counts.empty:
+            st.write("Ausreisser-Gruende:")
+            st.dataframe(reason_counts, use_container_width=True, hide_index=True)
+
+        with st.expander("Entfernte Ausreisser"):
+            columns = [
+                "scan_id",
+                "matched_access_points",
+                "residual_rmse",
+                "error_m",
+                "wifi_jump_m",
+                "outlier_reason",
+            ]
+            available_columns = [column for column in columns if column in outlier_route_estimates.columns]
+            st.dataframe(
+                outlier_route_estimates[available_columns],
+                use_container_width=True,
+                hide_index=True,
+            )
 
 
 def build_example_input(access_points: pd.DataFrame, count: int = 3) -> str:

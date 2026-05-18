@@ -217,17 +217,61 @@ Routerstandorte.
 Im Laufweg-Vergleich gilt:
 
 - rote Linie: echter GPS-Laufweg
-- blaue Linie: WLAN-Laufweg aus der Feder-/Kreislogik
-- orange Linien: Fehler/Abweichung zwischen GPS und WLAN
+- hellrote gestrichelte Linie: Roh-GPS vor dem Weg-Matching
+- rote Linie: GPS-Laufweg nach Weg-Matching auf begehbare Wege
+- blaue Linie: WLAN-Laufweg, bevorzugt aus WKNN-Fingerprinting und Weg-Matching
+- orange gestrichelte Linien: Fehler/Abweichung zwischen GPS und WLAN
 - Pfeile: Laufrichtung
+
+Fuer den Laufweg wird inzwischen bevorzugt WKNN-Fingerprinting genutzt:
+
+1. Jeder Scan wird als RSSI-Fingerabdruck aus vielen `SSID+BSSID`-Signalen
+   betrachtet.
+2. Dieser Fingerabdruck wird mit alten Referenzscans verglichen.
+3. Die aehnlichsten Referenzpunkte ziehen die Schaetzung staerker an.
+4. Daraus entsteht ein gewichteter Standort.
+5. Die Route wird zeitlich geglaettet, damit einzelne RSSI-Ausreisser nicht
+   sofort einen grossen Sprung erzeugen.
+6. Danach wird der Punkt route-aware auf begehbare OSM-Wege gesetzt.
+
+Auch GPS wird fuer den Vergleich nicht mehr blind als Rohpunkt verwendet.
+Stattdessen wird eine zweite GPS-Route berechnet:
+
+1. Roh-GPS bleibt unveraendert gespeichert.
+2. Pro GPS-Punkt werden mehrere begehbare OSM-Wege als Kandidaten gesucht.
+3. Fusswege, Fussgaengerbereiche und kleine Wege werden gegenueber grossen
+   Strassen bevorzugt.
+4. Der Verlauf der ganzen Route wird mitbewertet, damit einzelne verrauschte
+   GPS-Punkte nicht auf falsche Parallelwege springen.
+5. Diese gematchte GPS-Route ist die rote Referenz im Laufweg-Vergleich.
+
+Die alte Feder-/Kreislogik bleibt als Fallback und Vergleich erhalten. Sie ist
+fachlich anschaulich, aber fuer RSSI draussen oft instabiler als
+Fingerprinting, weil einzelne Signalstaerken stark schwanken koennen.
 
 Die WLAN-Punkte werden nach der Schaetzung wieder auf begehbare Wege gesnappt,
 weil der Mensch draussen auf Strassen oder Fusswegen laeuft.
 
 Damit die App fluessig bleibt, wird dieser Vergleich nicht bei jedem
-Browser-Start neu berechnet. `main.py` erzeugt einmal
-`data/processed/route_comparison.csv`; die App laedt danach diese fertige
-Datei.
+Browser-Start neu berechnet. `main.py` erzeugt einmal die CSV-Dateien in
+`data/processed/`; die App laedt danach diese fertigen Dateien.
+
+Fuer die Demo wird zusaetzlich eine bereinigte Route genutzt:
+
+- `route_comparison.csv`: rohe Vergleichsdaten
+- `route_comparison_clean.csv`: Anzeige ohne starke Ausreisser
+- `route_comparison_outliers.csv`: entfernte Punkte mit Grund
+- `route_comparison_wknn.csv`: rohe WKNN-Vergleichsdaten
+- `route_comparison_wknn_clean.csv`: bevorzugte Anzeige ohne starke
+  Ausreisser
+- `route_comparison_wknn_outliers.csv`: entfernte WKNN-Punkte mit Grund
+- `gps_route_raw.csv`: unveraenderte GPS-Punkte aus der Kalibrierung
+- `gps_route_matched.csv`: GPS-Punkte auf plausiblen begehbaren Wegen
+- `route_comparison_wknn_matched_clean.csv`: Standardanzeige in der App
+
+Ausreisser werden entfernt, wenn z. B. zu wenige APs erkannt wurden, der RMSE
+sehr hoch ist, der Fehler extrem gross ist oder ein unrealistischer Sprung im
+WLAN-Laufweg entsteht.
 
 
 10. Wichtige Grenzen
