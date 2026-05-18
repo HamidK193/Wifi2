@@ -58,12 +58,15 @@
   `route_comparison_wknn_matched_clean.csv` genutzt. Diese Route verwendet
   WKNN-Fingerprinting, zeitliche Glaettung und danach route-aware
   Strassen-/Fussweg-Matching fuer GPS und WLAN.
+- Die WKNN-Fingerprints verwenden nur noch Netzwerke, die in mindestens
+  3 Kalibrierungs-Scans vorkommen; seltenere Netze werden wegen zu grober
+  Standortgrundlage ignoriert.
 - Roh-GPS bleibt in `gps_route_raw.csv`; die plausiblere GPS-Referenz fuer
   den Vergleich liegt in `gps_route_matched.csv`.
 - Die alte Triangulationsroute bleibt als Fallback und Vergleich erhalten.
 - `main.py` arbeitet inkrementell: Wenn die schweren Basis-Artefakte bereits
-  existieren, werden nur fehlende schnelle Runtime-Artefakte wie WKNN-Routen
-  erzeugt.
+  existieren, werden die schnellen Runtime-Artefakte wie WKNN-Routen neu
+  erzeugt, waehrend die schweren Basisdaten wiederverwendet werden.
 - Die Router-Schaetzung nutzt GPS-Kalibrierungsdaten, nicht gesnappte
   Nutzerstandorte.
 - Eine Router-Schaetzung ist erst gueltig, wenn mindestens 3 Scanpunkte fuer

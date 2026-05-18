@@ -248,6 +248,8 @@ WKNN-Fingerprint-Route:
 
 - jeder Scan wird als RSSI-Fingerabdruck aus mehreren `SSID+BSSID`-Werten
   betrachtet
+- fuer Fingerprints werden nur Netzwerke verwendet, die in mindestens
+  3 Kalibrierungs-Scans vorkommen
 - aehnliche alte Referenzscans werden gesucht
 - die naechsten Referenzscans bestimmen den WLAN-Standort als gewichteten
   Mittelwert
@@ -338,8 +340,9 @@ py main.py
 ```
 
 Wenn die schweren Basis-Artefakte in `data/processed/` bereits existieren,
-aktualisiert `main.py` nur noch die schnellen Laufweg-Artefakte. Dadurch muss
-die App den Laufweg nicht live im Browser berechnen.
+aktualisiert `main.py` die schnellen Laufweg-Artefakte neu. Dadurch muss die
+App den Laufweg nicht live im Browser berechnen, und Aenderungen an der
+WKNN-Logik werden beim naechsten Pipeline-Lauf direkt sichtbar.
 
 ## Ausfuehrung Browser-App
 

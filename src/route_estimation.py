@@ -43,6 +43,7 @@ GPS_ROUTE_COLUMNS = [
     "candidate_count",
 ]
 DEFAULT_MISSING_RSSI = -100.0
+MIN_STABLE_NETWORK_SCANS = 3
 
 
 def build_gps_route_raw(calibration_dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -208,6 +209,17 @@ def estimate_scan_position_wknn(
     if reference_dataframe.empty or input_observations.empty:
         return None
 
+    reference_dataframe = _filter_networks_with_minimum_scan_support(
+        reference_dataframe,
+        min_scans=MIN_STABLE_NETWORK_SCANS,
+    )
+    stable_network_ids = set(reference_dataframe["network_id"])
+    input_observations = input_observations.loc[
+        input_observations["network_id"].isin(stable_network_ids)
+    ].copy()
+    if reference_dataframe.empty or input_observations.empty:
+        return None
+
     input_by_network = (
         input_observations.groupby("network_id", as_index=False)
         .agg(rssi=("rssi", "mean"))
@@ -282,7 +294,14 @@ def build_wknn_route_comparison(
     if calibration_dataframe.empty:
         return pd.DataFrame(columns=ROUTE_ESTIMATE_COLUMNS)
 
-    fingerprints = _build_scan_fingerprints(calibration_dataframe)
+    stable_calibration_dataframe = _filter_networks_with_minimum_scan_support(
+        calibration_dataframe,
+        min_scans=MIN_STABLE_NETWORK_SCANS,
+    )
+    if stable_calibration_dataframe.empty:
+        return pd.DataFrame(columns=ROUTE_ESTIMATE_COLUMNS)
+
+    fingerprints = _build_scan_fingerprints(stable_calibration_dataframe)
     for actual_row in fingerprints:
         estimate = _estimate_scan_position_wknn_from_fingerprints(
             actual_row,
@@ -729,6 +748,19 @@ def _build_scan_fingerprints(calibration_dataframe: pd.DataFrame) -> list[dict[s
             }
         )
     return fingerprints
+
+
+def _filter_networks_with_minimum_scan_support(
+    dataframe: pd.DataFrame,
+    *,
+    min_scans: int,
+) -> pd.DataFrame:
+    if dataframe.empty:
+        return dataframe.copy()
+
+    scan_counts = dataframe.groupby("network_id")["scan_id"].nunique()
+    stable_network_ids = scan_counts.loc[scan_counts >= min_scans].index
+    return dataframe.loc[dataframe["network_id"].isin(stable_network_ids)].copy()
 
 
 def _estimate_scan_position_wknn_from_fingerprints(

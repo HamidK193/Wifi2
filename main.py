@@ -87,7 +87,7 @@ def update_fast_runtime_outputs(
         "route_comparison_wknn_matched_clean": processed_dir / "route_comparison_wknn_matched_clean.csv",
         "route_comparison_wknn_matched_outliers": processed_dir / "route_comparison_wknn_matched_outliers.csv",
     }
-    if osm_path is not None and not all(path.exists() for path in wknn_paths.values()):
+    if osm_path is not None:
         raw_dataframe = load_wifi_csv(raw_csv_path)
         calibration_dataframe = clean_wifi_data(
             raw_dataframe,

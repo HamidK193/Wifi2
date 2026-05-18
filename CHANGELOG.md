@@ -8,6 +8,10 @@ Alle wichtigen Aenderungen am Projekt werden hier kurz protokolliert.
   `docs/handover_next_chat.md` dokumentiert.
 - README und Projektgedaechtnis um den Handover-Verweis, `route_estimation.py`
   und den naechsten fachlichen Schwerpunkt fuer die WLAN-Routenlogik ergaenzt.
+- WKNN-Fingerprinting so verschaerft, dass Netzwerke mit weniger als
+  3 Kalibrierungs-Scans nicht mehr in die WLAN-Routenlogik eingehen.
+- `main.py` aktualisiert schnelle WKNN-Laufweg-Artefakte nun bei jedem Lauf
+  neu, damit Logikaenderungen nicht an alten CSV-Dateien haengen bleiben.
 
 ## 2026-05-12
 

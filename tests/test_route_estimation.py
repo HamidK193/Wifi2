@@ -122,6 +122,47 @@ def test_wknn_scan_position_uses_similar_reference_scan(triangulation_raw_datafr
     assert estimate["method"] == "wknn_fingerprinting"
 
 
+def test_wknn_ignores_networks_seen_in_fewer_than_three_scans(triangulation_raw_dataframe) -> None:
+    calibration_dataframe = clean_wifi_data(
+        triangulation_raw_dataframe,
+        require_coordinates=True,
+        include_coordinates=True,
+    )
+    rare_network = calibration_dataframe.iloc[[0]].copy()
+    rare_network["network_id"] = "Rare | 00:00:00:00:00:01"
+    rare_network["ssid"] = "Rare"
+    rare_network["bssid"] = "00:00:00:00:00:01"
+    rare_network["rssi"] = -30
+
+    reference_dataframe = __import__("pandas").concat(
+        [
+            calibration_dataframe.loc[calibration_dataframe["scan_id"] != "scan_01"],
+            rare_network,
+        ],
+        ignore_index=True,
+    )
+    input_observations = __import__("pandas").concat(
+        [
+            calibration_dataframe.loc[
+                calibration_dataframe["scan_id"] == "scan_01",
+                ["network_id", "ssid", "bssid", "rssi"],
+            ],
+            rare_network.loc[:, ["network_id", "ssid", "bssid", "rssi"]],
+        ],
+        ignore_index=True,
+    )
+
+    estimate = estimate_scan_position_wknn(
+        reference_dataframe,
+        input_observations,
+        k=2,
+        min_matches=2,
+    )
+
+    assert estimate is not None
+    assert estimate["matched_access_points"] == 3
+
+
 def test_wknn_route_comparison_returns_smoothed_road_snapped_points(triangulation_raw_dataframe) -> None:
     calibration_dataframe = clean_wifi_data(
         triangulation_raw_dataframe,
