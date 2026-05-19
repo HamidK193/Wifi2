@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <style>
+      .title { font-family: Aptos, Arial, sans-serif; font-size: 42px; font-weight: 800; fill: #111827; }
+      .subtitle { font-family: Aptos, Arial, sans-serif; font-size: 25px; fill: #374151; }
+      .label { font-family: Aptos, Arial, sans-serif; font-size: 23px; fill: #111827; font-weight: 700; }
+      .small { font-family: Aptos, Arial, sans-serif; font-size: 19px; fill: #374151; }
+      .tiny { font-family: Aptos, Arial, sans-serif; font-size: 16px; fill: #4b5563; }
+      .panel { fill: #ffffff; stroke: #d1d5db; stroke-width: 2; rx: 18; }
+      .note { fill: #f9fafb; stroke: #d1d5db; stroke-width: 2; rx: 14; }
+      .warn { fill: #fff7ed; stroke: #fed7aa; stroke-width: 2; rx: 14; }
+      .circle { fill: none; stroke-width: 5; stroke-dasharray: 13 10; opacity: 0.58; }
+      .noteText { font-family: Aptos, Arial, sans-serif; font-size: 17px; fill: #374151; }
+      .noteHead { font-family: Aptos, Arial, sans-serif; font-size: 19px; fill: #111827; font-weight: 700; }
+    </style>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000000" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1600" height="900" fill="#f8fafc"/>
+
+  <text x="80" y="78" class="title">Router-Standortschätzung: Messkreise statt WKNN</text>
+  <text x="82" y="120" class="subtitle">Aus jedem Messpunkt entsteht ein unsicherer Radius. Der Router liegt dort, wo die Kreise am besten zusammenpassen.</text>
+
+  <rect x="75" y="160" width="1000" height="625" class="panel" filter="url(#shadow)"/>
+  <rect x="1115" y="160" width="405" height="625" class="panel" filter="url(#shadow)"/>
+
+  <!-- Ruhiger Hintergrund: nur leichte Messfläche -->
+  <rect x="130" y="225" width="860" height="485" fill="#f9fafb" stroke="#e5e7eb" stroke-width="2" rx="18"/>
+  <path d="M180 610 C315 535, 410 472, 535 430 C660 388, 780 365, 940 318" stroke="#d1d5db" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.55"/>
+  <path d="M205 300 C340 365, 455 390, 585 385 C720 380, 828 405, 920 470" stroke="#d1d5db" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.42"/>
+
+  <!-- Messpunkte -->
+  <circle cx="500" cy="430" r="22" fill="#2563eb" stroke="#ffffff" stroke-width="5"/>
+  <rect x="275" y="345" width="230" height="82" class="note"/>
+  <text x="295" y="377" class="label">Messpunkt 1</text>
+  <text x="295" y="404" class="small">starkes Signal</text>
+
+  <circle cx="760" cy="360" r="22" fill="#16a34a" stroke="#ffffff" stroke-width="5"/>
+  <rect x="780" y="275" width="220" height="82" class="note"/>
+  <text x="800" y="307" class="label">Messpunkt 2</text>
+  <text x="800" y="334" class="small">mittleres Signal</text>
+
+  <circle cx="590" cy="650" r="22" fill="#f97316" stroke="#ffffff" stroke-width="5"/>
+  <rect x="390" y="660" width="230" height="82" class="note"/>
+  <text x="410" y="692" class="label">Messpunkt 3</text>
+  <text x="410" y="719" class="small">schwächeres Signal</text>
+
+  <!-- Unterschiedliche RSSI-Radien: starkes Signal kleiner, schwaches Signal größer -->
+  <circle cx="500" cy="430" r="105" class="circle" stroke="#2563eb"/>
+  <circle cx="760" cy="360" r="175" class="circle" stroke="#16a34a"/>
+  <circle cx="590" cy="650" r="245" class="circle" stroke="#f97316"/>
+
+  <!-- Überlappung und Router -->
+  <ellipse cx="610" cy="465" rx="54" ry="36" fill="#fde68a" opacity="0.72" stroke="#f59e0b" stroke-width="2.5"/>
+  <text x="465" y="535" class="small">gemeinsamer Bereich</text>
+  <text x="465" y="561" class="tiny">passt am besten zu den Kreisen</text>
+
+  <path d="M610 438 L636 482 L584 482 Z" fill="#7c3aed" opacity="0.97" stroke="#ffffff" stroke-width="4" filter="url(#shadow)"/>
+  <circle cx="610" cy="465" r="7" fill="#ffffff"/>
+  <rect x="660" y="430" width="250" height="82" class="note"/>
+  <text x="685" y="462" class="label">geschätzter</text>
+  <text x="685" y="490" class="label">Routerstandort</text>
+
+  <!-- Mini-Legende im linken Panel -->
+  <rect x="155" y="650" width="195" height="58" fill="#ffffff" stroke="#e5e7eb" stroke-width="2" rx="12"/>
+  <line x1="175" y1="668" x2="228" y2="668" stroke="#2563eb" stroke-width="5" stroke-dasharray="13 10" opacity="0.6"/>
+  <text x="242" y="674" class="tiny">Radius aus RSSI</text>
+  <text x="175" y="699" class="tiny">laut = kleiner</text>
+
+  <!-- Rechte Erklärung -->
+  <text x="1150" y="218" class="label">So schätzen wir Router:</text>
+
+  <circle cx="1160" cy="265" r="10" fill="#2563eb"/>
+  <text x="1185" y="272" class="small">Ein WLAN auswählen</text>
+  <text x="1185" y="298" class="tiny">SSID + BSSID als Einheit</text>
+
+  <circle cx="1160" cy="345" r="10" fill="#16a34a"/>
+  <text x="1185" y="352" class="small">RSSI in Radius umrechnen</text>
+  <text x="1185" y="378" class="tiny">starkes Signal = näher dran</text>
+
+  <circle cx="1160" cy="425" r="10" fill="#f97316"/>
+  <text x="1185" y="432" class="small">Kreise vergleichen</text>
+  <text x="1185" y="458" class="tiny">wo passen die Radien zusammen?</text>
+
+  <circle cx="1160" cy="505" r="10" fill="#7c3aed"/>
+  <text x="1185" y="512" class="small">Besten Punkt wählen</text>
+  <text x="1185" y="538" class="tiny">kleinster Fehler zu allen Kreisen</text>
+
+  <rect x="1150" y="585" width="325" height="168" class="warn"/>
+  <text x="1170" y="620" class="noteHead">Wichtig</text>
+  <text x="1170" y="654" class="noteText">Mit 1 oder 2 Messpunkten</text>
+  <text x="1170" y="681" class="noteText">ist die Schätzung unsicher.</text>
+  <text x="1170" y="708" class="noteText">Ab 3 Messpunkten ist der</text>
+  <text x="1170" y="735" class="noteText">Routerstandort besser begründet.</text>
+
+  <text x="82" y="835" class="small">Merksatz: Routerstandorte entstehen aus RSSI-Kreisen. WKNN nutzen wir nur für die WLAN-Punkte der Laufweg-Route.</text>
+</svg>
