@@ -25,6 +25,11 @@ ROUTE_ESTIMATE_COLUMNS = [
 ROUTE_QUALITY_COLUMNS = ROUTE_ESTIMATE_COLUMNS + [
     "gps_jump_m",
     "wifi_jump_m",
+    "seen_calibrated_aps",
+    "median_router_rmse_m",
+    "good_router_count",
+    "usable_router_count",
+    "weak_router_count",
     "is_outlier",
     "outlier_reason",
 ]
@@ -541,25 +546,20 @@ def clean_route_comparison(
     max_error_m: float = 100.0,
     max_jump_m: float = 80.0,
     large_time_gap_s: float = 90.0,
+    max_median_router_rmse_m: float | None = None,
 ) -> pd.DataFrame:
     if route_comparison.empty:
         return pd.DataFrame(columns=ROUTE_QUALITY_COLUMNS)
 
-    route = route_comparison.copy()
-    route["timestamp"] = pd.to_datetime(route["timestamp"], errors="coerce")
-    route = route.sort_values("timestamp").reset_index(drop=True)
-    route["gps_jump_m"] = _calculate_route_jumps(route, "actual_latitude", "actual_longitude")
-    route["wifi_jump_m"] = _calculate_route_jumps(route, "estimated_latitude", "estimated_longitude")
-    route["time_gap_s"] = route["timestamp"].diff().dt.total_seconds().fillna(0)
-    route["is_outlier"] = False
-    route["outlier_reason"] = ""
-
-    _append_outlier_reason(route, route["matched_access_points"] < min_aps, "too_few_aps")
-    _append_outlier_reason(route, route["residual_rmse"] > max_rmse_m, "high_rmse")
-    _append_outlier_reason(route, route["error_m"] > max_error_m, "high_error")
-    _append_large_jump_reasons(route, max_jump_m=max_jump_m, large_time_gap_s=large_time_gap_s)
-
-    route["is_outlier"] = route["outlier_reason"] != ""
+    route = _mark_route_quality(
+        route_comparison,
+        min_aps=min_aps,
+        max_rmse_m=max_rmse_m,
+        max_error_m=max_error_m,
+        max_jump_m=max_jump_m,
+        large_time_gap_s=large_time_gap_s,
+        max_median_router_rmse_m=max_median_router_rmse_m,
+    )
     clean_route = route.loc[~route["is_outlier"]].copy()
     output_columns = _route_quality_output_columns(route_comparison)
     return clean_route.loc[:, output_columns].reset_index(drop=True)
@@ -569,27 +569,15 @@ def add_route_quality_flags(route_comparison: pd.DataFrame, **kwargs: object) ->
     if route_comparison.empty:
         return pd.DataFrame(columns=ROUTE_QUALITY_COLUMNS)
 
-    route = route_comparison.copy()
-    route["timestamp"] = pd.to_datetime(route["timestamp"], errors="coerce")
-    route = route.sort_values("timestamp").reset_index(drop=True)
-    route["gps_jump_m"] = _calculate_route_jumps(route, "actual_latitude", "actual_longitude")
-    route["wifi_jump_m"] = _calculate_route_jumps(route, "estimated_latitude", "estimated_longitude")
-    route["time_gap_s"] = route["timestamp"].diff().dt.total_seconds().fillna(0)
-    route["is_outlier"] = False
-    route["outlier_reason"] = ""
-
-    min_aps = int(kwargs.get("min_aps", 4))
-    max_rmse_m = float(kwargs.get("max_rmse_m", 120.0))
-    max_error_m = float(kwargs.get("max_error_m", 100.0))
-    max_jump_m = float(kwargs.get("max_jump_m", 80.0))
-    large_time_gap_s = float(kwargs.get("large_time_gap_s", 90.0))
-
-    _append_outlier_reason(route, route["matched_access_points"] < min_aps, "too_few_aps")
-    _append_outlier_reason(route, route["residual_rmse"] > max_rmse_m, "high_rmse")
-    _append_outlier_reason(route, route["error_m"] > max_error_m, "high_error")
-    _append_large_jump_reasons(route, max_jump_m=max_jump_m, large_time_gap_s=large_time_gap_s)
-
-    route["is_outlier"] = route["outlier_reason"] != ""
+    route = _mark_route_quality(
+        route_comparison,
+        min_aps=int(kwargs.get("min_aps", 4)),
+        max_rmse_m=float(kwargs.get("max_rmse_m", 120.0)),
+        max_error_m=float(kwargs.get("max_error_m", 100.0)),
+        max_jump_m=float(kwargs.get("max_jump_m", 80.0)),
+        large_time_gap_s=float(kwargs.get("large_time_gap_s", 90.0)),
+        max_median_router_rmse_m=kwargs.get("max_median_router_rmse_m"),
+    )
     output_columns = _route_quality_output_columns(route_comparison)
     return route.loc[:, output_columns].reset_index(drop=True)
 
@@ -600,18 +588,105 @@ def save_route_estimates(route_estimates: pd.DataFrame, output_path: str | Path)
     return path
 
 
+def add_router_quality_metrics(
+    route_comparison: pd.DataFrame,
+    network_observations: pd.DataFrame,
+    access_points: pd.DataFrame,
+) -> pd.DataFrame:
+    if route_comparison.empty:
+        return route_comparison.copy()
+
+    route_comparison = route_comparison.drop(
+        columns=[
+            "seen_calibrated_aps",
+            "median_router_rmse_m",
+            "good_router_count",
+            "usable_router_count",
+            "weak_router_count",
+        ],
+        errors="ignore",
+    )
+
+    quality_columns = ["network_id", "rmse_m", "quality_flag"]
+    available_quality_columns = [column for column in quality_columns if column in access_points.columns]
+    if not {"network_id", "rmse_m", "quality_flag"}.issubset(available_quality_columns):
+        return route_comparison.copy()
+
+    router_support = (
+        network_observations.merge(
+            access_points.loc[:, available_quality_columns],
+            on="network_id",
+            how="inner",
+        )
+        .groupby("scan_id", as_index=False)
+        .agg(
+            seen_calibrated_aps=("network_id", "nunique"),
+            median_router_rmse_m=("rmse_m", "median"),
+            good_router_count=("quality_flag", lambda values: int((values == "good").sum())),
+            usable_router_count=("quality_flag", lambda values: int((values == "usable").sum())),
+            weak_router_count=("quality_flag", lambda values: int((values == "weak").sum())),
+        )
+    )
+    return route_comparison.merge(router_support, on="scan_id", how="left")
+
+
 def _route_quality_output_columns(route_comparison: pd.DataFrame) -> list[str]:
+    optional_router_quality_columns = [
+        "seen_calibrated_aps",
+        "median_router_rmse_m",
+        "good_router_count",
+        "usable_router_count",
+        "weak_router_count",
+    ]
     return list(
         dict.fromkeys(
             list(route_comparison.columns)
             + [
                 "gps_jump_m",
                 "wifi_jump_m",
+                *[
+                    column
+                    for column in optional_router_quality_columns
+                    if column in route_comparison.columns
+                ],
                 "is_outlier",
                 "outlier_reason",
             ]
         )
     )
+
+
+def _mark_route_quality(
+    route_comparison: pd.DataFrame,
+    *,
+    min_aps: int,
+    max_rmse_m: float,
+    max_error_m: float,
+    max_jump_m: float,
+    large_time_gap_s: float,
+    max_median_router_rmse_m: object | None,
+) -> pd.DataFrame:
+    route = route_comparison.copy()
+    route["timestamp"] = pd.to_datetime(route["timestamp"], errors="coerce")
+    route = route.sort_values("timestamp").reset_index(drop=True)
+    route["gps_jump_m"] = _calculate_route_jumps(route, "actual_latitude", "actual_longitude")
+    route["wifi_jump_m"] = _calculate_route_jumps(route, "estimated_latitude", "estimated_longitude")
+    route["time_gap_s"] = route["timestamp"].diff().dt.total_seconds().fillna(0)
+    route["is_outlier"] = False
+    route["outlier_reason"] = ""
+
+    _append_outlier_reason(route, route["matched_access_points"] < min_aps, "too_few_aps")
+    _append_outlier_reason(route, route["residual_rmse"] > max_rmse_m, "high_rmse")
+    _append_outlier_reason(route, route["error_m"] > max_error_m, "high_error")
+    if max_median_router_rmse_m is not None and "median_router_rmse_m" in route.columns:
+        _append_outlier_reason(
+            route,
+            route["median_router_rmse_m"] > float(max_median_router_rmse_m),
+            "weak_router_support",
+        )
+    _append_large_jump_reasons(route, max_jump_m=max_jump_m, large_time_gap_s=large_time_gap_s)
+    route["is_outlier"] = route["outlier_reason"] != ""
+    return route
 
 
 def _snap_route_estimates_to_roads(

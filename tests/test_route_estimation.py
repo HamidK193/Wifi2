@@ -9,6 +9,7 @@ from src.route_estimation import (
     build_wknn_route_comparison,
     clean_route_comparison,
     estimate_scan_position_wknn,
+    add_router_quality_metrics,
     smooth_route_positions,
     summarize_route_quality,
     summarize_wifi_route,
@@ -96,6 +97,55 @@ def test_clean_route_comparison_removes_low_quality_outliers() -> None:
     assert cleaned["scan_id"].tolist() == ["scan_01", "scan_05"]
     assert "is_outlier" in cleaned.columns
     assert cleaned["is_outlier"].eq(False).all()
+
+
+def test_clean_route_comparison_can_remove_weak_router_support() -> None:
+    route_comparison = build_route_frame(
+        [
+            ("scan_01", 48.8800, 8.7000, 48.8800, 8.7000, 5, 10, 5),
+            ("scan_02", 48.8801, 8.7001, 48.8801, 8.7001, 5, 10, 5),
+        ]
+    )
+    route_comparison["median_router_rmse_m"] = [12.0, 25.0]
+
+    cleaned = clean_route_comparison(
+        route_comparison,
+        min_aps=4,
+        max_rmse_m=120,
+        max_error_m=100,
+        max_jump_m=80,
+        max_median_router_rmse_m=15,
+    )
+
+    assert cleaned["scan_id"].tolist() == ["scan_01"]
+
+
+def test_add_router_quality_metrics_summarizes_seen_access_points() -> None:
+    route_comparison = build_route_frame(
+        [("scan_01", 48.8800, 8.7000, 48.8800, 8.7000, 5, 10, 5)]
+    )
+    network_observations = __import__("pandas").DataFrame(
+        [
+            {"scan_id": "scan_01", "network_id": "a"},
+            {"scan_id": "scan_01", "network_id": "b"},
+            {"scan_id": "scan_01", "network_id": "c"},
+        ]
+    )
+    access_points = __import__("pandas").DataFrame(
+        [
+            {"network_id": "a", "rmse_m": 10.0, "quality_flag": "good"},
+            {"network_id": "b", "rmse_m": 14.0, "quality_flag": "usable"},
+            {"network_id": "c", "rmse_m": 30.0, "quality_flag": "weak"},
+        ]
+    )
+
+    enriched = add_router_quality_metrics(route_comparison, network_observations, access_points)
+
+    assert int(enriched.loc[0, "seen_calibrated_aps"]) == 3
+    assert float(enriched.loc[0, "median_router_rmse_m"]) == 14.0
+    assert int(enriched.loc[0, "good_router_count"]) == 1
+    assert int(enriched.loc[0, "usable_router_count"]) == 1
+    assert int(enriched.loc[0, "weak_router_count"]) == 1
 
 
 def test_wknn_scan_position_uses_similar_reference_scan(triangulation_raw_dataframe) -> None:

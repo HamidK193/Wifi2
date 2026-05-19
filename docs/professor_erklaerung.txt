@@ -101,6 +101,12 @@ Zusatz:
 - Nur BSSIDs mit mindestens 3 unterschiedlichen Kalibrierungs-Scans werden
   ueberhaupt trianguliert.
 - Pro AP speichern wir auch Qualitaetswerte wie Scan-Anzahl und RMSE.
+- Drei Scans sind nur die Mindestvoraussetzung. Fuer die praktische
+  Verwendbarkeit ist der RMSE der Kalibrierung aussagekraeftiger als die reine
+  Scan-Anzahl.
+- In den aktuellen Daten sieht man: gute Streckenabschnitte werden vor allem
+  dort erreicht, wo die gesehenen Router einen niedrigeren Kalibrierungs-RMSE
+  haben. Viele Scans allein garantieren noch keine gute Routerposition.
 
 Wenn weniger als 3 Scanpunkte vorhanden sind, kann die App trotzdem eine
 schwache Fallback-Schaetzung zeigen:
@@ -273,6 +279,14 @@ Ausreisser werden entfernt, wenn z. B. zu wenige APs erkannt wurden, der RMSE
 sehr hoch ist, der Fehler extrem gross ist oder ein unrealistischer Sprung im
 WLAN-Laufweg entsteht.
 
+Fuer die aktuelle Demo-Ansicht gilt zusaetzlich:
+
+- Ein Scan bleibt nur sichtbar, wenn die an diesem Punkt gesehenen
+  kalibrierten Router einen medianen Kalibrierungs-RMSE von hoechstens
+  `15 m` haben.
+- Dadurch zeigt die Hauptkarte bewusst vor allem die Streckenbereiche, in
+  denen die Routergrundlage am verlaesslichsten ist.
+
 
 10. Wichtige Grenzen
 -------------------
@@ -283,6 +297,7 @@ Die Genauigkeit ist aktuell begrenzt durch:
 - schwankende RSSI-Werte
 - unterschiedliche Access-Point-Dichte
 - zu wenige Wiederholungsmessungen an manchen Stellen
+- Router mit fachlich schwacher Kalibrierung trotz Mindestanzahl an Scans
 - das einfache RSSI-Distanzmodell
 
 Der aktuelle Stand ist daher eine verstaendliche Grundlage fuer:
@@ -374,6 +389,12 @@ Was passiert bei weniger als 3 Kreisen?
 Die App zeigt dann nur eine Fallback-Schaetzung. Bei 2 Kreisen nutzt sie einen
 Schnitt- oder Zwischenpunkt. Wenn Kreise nicht sauber zusammenpassen, wird eine
 gewichtete Federlogik genutzt, bei der staerkere Signale mehr ziehen.
+
+Reichen 3 Scans automatisch fuer einen guten Router?
+Nein. Drei Scans sind nur die Mindestbedingung fuer eine regulare
+Schaetzung. Entscheidend ist danach, wie gut die Kreise zusammenpassen. In den
+aktuellen Daten sind Strecken mit niedrigerem Router-RMSE klar besser als
+Strecken, in denen viele `weak`-Router gesehen werden.
 
 Warum gibt es einen Laufweg-Vergleich?
 Damit man sieht, wie weit der nur aus WLAN geschaetzte Laufweg vom echten

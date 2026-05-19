@@ -105,6 +105,12 @@ Erklaerung:
 - Mehrere Kreise derselben `SSID+BSSID`-Einheit werden kombiniert.
 - Der wahrscheinlichste Routerstandort ist der Punkt, der am besten zu allen
   Kreisen passt.
+- Mindestens 3 Scans sind nur die Mindestvoraussetzung. Fuer gute
+  Lokalisierung ist zusaetzlich wichtig, dass die Router-Kalibrierung einen
+  niedrigen RMSE hat.
+- In den aktuellen Messdaten sind die guten Streckenabschnitte vor allem dort,
+  wo die gesehenen Router im Mittel besser kalibriert sind; viele Scans allein
+  garantieren noch keine gute Routerposition.
 - Router duerfen in Gebaeuden liegen, deshalb werden Router nicht auf Strassen
   verschoben.
 
@@ -139,6 +145,13 @@ Wichtige Logik:
 - WLAN wird ebenfalls auf begehbare Wege gesetzt, weil der Mensch draussen auf
   Fusswegen oder Strassen laeuft.
 - Der Vergleich ist dadurch fairer als Roh-GPS gegen WLAN.
+- Wenn der Professor nach den noch sichtbaren Fehlerlinien fragt:
+  Router mit mindestens 3 Scans sind bereits gefiltert, aber die Analyse zeigt,
+  dass Abschnitte mit niedrigerem Router-RMSE deutlich bessere WLAN-Punkte
+  liefern als Abschnitte mit vielen `weak`-Routern.
+- Fuer die aktuelle Demo-Ansicht werden deshalb nur noch WLAN-Punkte gezeigt,
+  deren gesehene Router einen medianen Kalibrierungs-RMSE von hoechstens
+  `15 m` haben.
 
 Passender Test:
 

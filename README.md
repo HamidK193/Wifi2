@@ -40,8 +40,6 @@ Wichtige fachliche Idee:
   - tolerantes Matching fuer aehnliche SSID- und BSSID-Schreibweisen
   - Snapping der Schaetzung auf die naechste begehbare Strasse oder Fussweg
 - `pytest` und GitHub Actions pruefen die wichtigsten Kernfunktionen automatisch.
-- Fuer Task 1 und Task 2 liegen jeweils vier unterschiedliche kleine
-  Loesungsdateien im Projekt.
 
 ## Vereinfachte Projektstruktur
 
@@ -55,7 +53,6 @@ Wichtige fachliche Idee:
 |- pytest.ini
 |- main.py
 |- app.py
-|- Abgaben/
 |- data/
 |  |- raw/
 |  |  |- WigleWifi_20260408161721.csv
@@ -232,6 +229,9 @@ Wichtig:
 - Router duerfen logisch in Gebaeuden liegen.
 - Die Kreisfarben richten sich nach der SSID.
 - Die eindeutige technische Einheit bleibt trotzdem `SSID + BSSID`.
+- Mindestens 3 Kalibrierungs-Scans sind nur die Mindestbedingung fuer eine
+  regulaere Router-Schaetzung. Fuer die praktische Qualitaet ist zusaetzlich
+  wichtig, dass der Router-RMSE niedrig bleibt.
 
 ## Laufweg-Vergleich in der App
 
@@ -255,6 +255,14 @@ WKNN-Fingerprint-Route:
   Mittelwert
 - danach wird die Route zeitlich geglaettet und auf begehbare Wege gesnappt
 
+Die aktuelle Analyse zeigt ausserdem:
+
+- Gute Streckenabschnitte entstehen vor allem dort, wo die gesehenen Router
+  niedrige Kalibrierungsfehler haben.
+- Viele Scans allein garantieren keine gute Routerposition; Router mit hohem
+  RMSE koennen trotz `scan_count >= 3` weiter zu groben WLAN-Schaetzungen
+  fuehren.
+
 Die vorherige Feder-/Kreislogik bleibt als Vergleichs- und Fallback-Route
 erhalten:
 
@@ -273,6 +281,14 @@ Fuer die Standardanzeige wird bevorzugt
 Datei fehlt, faellt die App zuerst auf `route_comparison_wknn_clean.csv` und
 danach auf `route_comparison_clean.csv` zurueck. Ausreisser werden jeweils
 getrennt dokumentiert, damit die Rohdaten nachvollziehbar bleiben.
+
+Die Demo-Ansicht ist inzwischen bewusst streng:
+
+- Neben den bisherigen Ausreisserregeln bleiben nur Scans sichtbar, deren
+  gesehene kalibrierte Router einen medianen Kalibrierungs-RMSE von hoechstens
+  `15 m` haben.
+- Dadurch zeigt die Hauptkarte bevorzugt die Streckenbereiche, in denen die
+  Routergrundlage fachlich am verlaesslichsten ist.
 
 Das Weg-Matching funktioniert route-aware:
 
@@ -301,21 +317,6 @@ Damit die Karte fluessig bleibt, werden die roten und blauen Laufweg-Linien
 vollstaendig angezeigt, aber Detailmarker und orange Fehlerlinien nur reduziert
 gerendert. Ausserdem wird nur auf OSM-Wege gesnappt, wenn diese in sinnvoller
 Naehe liegen.
-
-## Uebungsdateien
-
-Im Repository liegen ausserdem mehrere kleine Uebungsloesungen aus dem Kurs:
-
-- Task 1:
-  - `Abgaben/task1_hamid.py`
-  - `Abgaben/task1_rojhat.py`
-  - `Abgaben/task1_lamia.py`
-  - `Abgaben/task1_aysel.py`
-- Task 2:
-  - `Abgaben/task2_vending_machine_hamid.py`
-  - `Abgaben/task2_vending_machine_rojhat.py`
-  - `Abgaben/task2_vending_machine_lamia.py`
-  - `Abgaben/task2_vending_machine_aysel.py`
 
 ## Benoetigte Python-Pakete
 

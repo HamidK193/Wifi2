@@ -4,6 +4,10 @@ Alle wichtigen Aenderungen am Projekt werden hier kurz protokolliert.
 
 ## 2026-05-18
 
+- Code vereinfacht: gemeinsame Laufweg-Artefakt-Erzeugung eingefuehrt und
+  doppelte Ausreisserlogik zusammengezogen.
+- Fachfremde `Abgaben/`-Uebungsdateien entfernt, damit das Repository den
+  WLAN-MVP klarer zeigt.
 - kompaktes Handover fuer den naechsten Chat in
   `docs/handover_next_chat.md` dokumentiert.
 - README und Projektgedaechtnis um den Handover-Verweis, `route_estimation.py`
@@ -12,6 +16,12 @@ Alle wichtigen Aenderungen am Projekt werden hier kurz protokolliert.
   3 Kalibrierungs-Scans nicht mehr in die WLAN-Routenlogik eingehen.
 - `main.py` aktualisiert schnelle WKNN-Laufweg-Artefakte nun bei jedem Lauf
   neu, damit Logikaenderungen nicht an alten CSV-Dateien haengen bleiben.
+- Dokumentation erweitert: 3 Scans sind nur die Mindestbedingung; fuer gute
+  Streckenabschnitte ist niedriger Router-RMSE aussagekraeftiger als reine
+  Scan-Anzahl.
+- Laufweg-Demo weiter verschaerft: bereinigte WKNN-Routen behalten nur noch
+  Scans mit `median_router_rmse_m <= 15`, sodass schwach kalibrierte
+  Routerbereiche aus der Hauptansicht verschwinden.
 
 ## 2026-05-12
 

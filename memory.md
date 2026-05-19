@@ -22,15 +22,6 @@
 - Die Runtime-Artefakte liegen in `data/processed/` und enthalten:
   - `triangulated_access_points.csv`
   - `triangulated_scan_positions.csv`
-  - `route_comparison.csv`
-  - `route_comparison_wknn.csv`
-  - `route_comparison_wknn_clean.csv`
-  - `route_comparison_wknn_outliers.csv`
-  - `gps_route_raw.csv`
-  - `gps_route_matched.csv`
-  - `route_comparison_wknn_matched.csv`
-  - `route_comparison_wknn_matched_clean.csv`
-  - `route_comparison_wknn_matched_outliers.csv`
   - `wifi_scans_clean.csv`
   - `scan_summary.csv`
   - `network_observations.csv`
@@ -38,69 +29,22 @@
 - Die App nutzt im Hauptmodus nur noch die Artefakte aus `data/processed/`.
 - Der normale Standort-Test ist GPS-frei und arbeitet ueber
   AP-Multilateration aus `SSID+BSSID+RSSI`.
+- Der Dev-Benchmark ist getrennt und darf vorhandene GPS-Daten nur fuer
+  Leave-one-scan-out und Fehlervergleich verwenden.
 - Die App nutzt `map_innenstadt.osm` als fokussierten Innenstadt-Ausschnitt.
-- Die App ist jetzt eine einfache Standort-Demo ohne Analysefilter:
-  WLAN-Werte eingeben, Standort schaetzen, Ergebnis auf Karte sehen.
-- Zusaetzlich gibt es den Tab `Router-Schaetzung`, der bewusst wieder
-  Messpunkte, RSSI-Kreise und geschaetzte Routerstandorte zeigt.
-- Der Tab `Laufweg-Vergleich` zeigt echte GPS-Route gegen WLAN-geschaetzte
-  Route:
-  - GPS-Laufweg nach Weg-Matching rot
-  - Roh-GPS optional hellrot gestrichelt
-  - WLAN-Laufweg nach Weg-Matching blau
-  - Abweichung zwischen beiden orange gestrichelt
-  - Pfeile zeigen die Bewegungsrichtung
-- Der Laufweg-Vergleich wird in `data/processed/route_comparison.csv`
-  gespeichert und in der App nur geladen, nicht jedes Mal neu berechnet.
-- Fuer die Anzeige nutzt die App `route_comparison_clean.csv`; entfernte
-  Ausreisser werden in `route_comparison_outliers.csv` mit Grund gespeichert.
-- Fuer die Standardanzeige wird inzwischen bevorzugt
-  `route_comparison_wknn_matched_clean.csv` genutzt. Diese Route verwendet
-  WKNN-Fingerprinting, zeitliche Glaettung und danach route-aware
-  Strassen-/Fussweg-Matching fuer GPS und WLAN.
-- Die WKNN-Fingerprints verwenden nur noch Netzwerke, die in mindestens
-  3 Kalibrierungs-Scans vorkommen; seltenere Netze werden wegen zu grober
-  Standortgrundlage ignoriert.
-- Roh-GPS bleibt in `gps_route_raw.csv`; die plausiblere GPS-Referenz fuer
-  den Vergleich liegt in `gps_route_matched.csv`.
-- Die alte Triangulationsroute bleibt als Fallback und Vergleich erhalten.
-- `main.py` arbeitet inkrementell: Wenn die schweren Basis-Artefakte bereits
-  existieren, werden die schnellen Runtime-Artefakte wie WKNN-Routen neu
-  erzeugt, waehrend die schweren Basisdaten wiederverwendet werden.
-- Die Router-Schaetzung nutzt GPS-Kalibrierungsdaten, nicht gesnappte
-  Nutzerstandorte.
-- Eine Router-Schaetzung ist erst gueltig, wenn mindestens 3 Scanpunkte fuer
-  dieselbe Kombination `SSID + BSSID` vorhanden sind.
-- Bei weniger als 3 Scanpunkten gibt es eine Fallback-Schaetzung:
-  - 2 Kreise: Schnitt-/Zwischenpunkt
-  - unsichere oder nicht beruehrende Kreise: einfache Feder-/Gewichtungslogik
-  - 1 Kreis: schwache Orientierung am Messpunkt
-- Routerstandorte werden nicht auf Strassen gesnappt, weil Access Points auch
-  in Gebaeuden liegen koennen.
-- Messpunkte, triangulierte Scan-Punkte, AP-Layer, Radiuskreise und
-  Kreisueberlappungen bleiben intern, werden aber nicht mehr als UI-Filter
-  angeboten.
-- Eingaben werden tolerant gematcht:
-  - BSSID/MAC wird normalisiert
-  - SSID darf leichte Schreib- oder Leerzeichenabweichungen haben
-  - RSSI darf ein neuer aktueller Messwert sein
-- Die geschaetzte Position wird auf die naechste begehbare OSM-Strasse oder
-  einen Fussweg gesetzt.
+- Die App berechnet in der Defaultansicht `Alle / Alle` keine Radiuskreise und
+  keine Overlap-Punkte, damit sie mit dem grossen Datensatz sichtbar bleibt.
+- Die App hat zwei Karten-Tabs:
+  - `Standort-Schaetzung` fuer den aktuell geschaetzten WLAN-Standort
+  - `GPS-vs-WLAN-Vergleich` fuer GPS-Route, WLAN-Schaetzpunkte und
+    Verbindungslinien/Pfeile zur Fehlerbewertung
+- Sichtbare Netzwerke, APs und Radiuskreise werden bei einer konkreten
+  Standortschaetzung standardmaessig auf 60 m um die Schaetzung begrenzt.
 - `src/evaluation.py` enthaelt die testbare Logik fuer Route-Comparison,
   Fehlerkennzahlen und Radiusfilter.
-- `src/wifi_input_matching.py` enthaelt die tolerante Eingabelogik.
-- `src/road_constraints.py` enthaelt das Strassen-/Fussweg-Snapping.
-- `src/route_estimation.py` enthaelt WKNN-Fingerprinting, Glaettung und
-  Laufweg-Vergleich.
 - In `.github/workflows/ci.yml` ist ein GitHub-Action-Workflow fuer
-  automatische Tests angelegt. Die CI fuehrt zusaetzlich einen schnellen
-  synthetischen Pipeline-Smoke-Test aus.
-- Fuer neue Chats liegt ein kompaktes Handover in
-  `docs/handover_next_chat.md`.
-- Naechster fachlich sinnvoller Schritt:
-  route-aware WKNN mit mehreren Kandidaten pro Scan und
-  Bewegungsplausibilitaet, um lange orange Fehlerlinien im Laufweg-Vergleich
-  weiter zu reduzieren.
+  automatische Tests angelegt. Die CI fuehrt zusaetzlich `python main.py` als
+  Pipeline-Smoke-Test aus.
 
 ### Bekannte Fakten zur CSV
 
@@ -117,12 +61,9 @@
 - Kalibrierungsdaten robust einlesen
 - aus Roh-GPS stabile AP-Positionen triangulieren
 - GPS-freie Laufzeit-Artefakte in `data/processed/` pflegen
-- OSM-Karte und geschaetzte Nutzerposition einfach im Browser darstellen
+- OSM-Karte und Scan-Daten interaktiv im Browser darstellen
 - Standort-Test ohne Roh-GPS im Hauptmodus betreiben
-- Router-Schaetzung mit Kreisprinzip im eigenen Tab demonstrieren
-- GPS-Laufweg und WLAN-Laufweg im eigenen Tab vergleichen
-- WLAN-Laufweg mit WKNN-Fingerprinting stabiler darstellen
-- GPS- und WLAN-Laufweg route-aware auf begehbare Wege begrenzen
+- Dev-Benchmark fuer kontrollierte Vergleiche beibehalten
 - automatische Tests und GitHub Actions stabil betreiben
 - Genauigkeit und Funktionalitaet per `pytest` absichern
 - Projekt klein und kursgerecht halten
@@ -132,4 +73,4 @@
 - mehrere CSV-Dateien zusammenfuehren
 - AP-Qualitaetsmetriken verbessern
 - mehrere Messlaeufe vergleichen
-- Smartphone-App optional spaeter ergaenzen
+.\.venv\Scripts\python.exe -m streamlit run app.py
