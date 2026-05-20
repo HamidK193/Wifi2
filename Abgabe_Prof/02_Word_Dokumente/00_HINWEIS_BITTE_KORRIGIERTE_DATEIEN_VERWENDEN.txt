@@ -1,0 +1,11 @@
+Bitte für die Abgabe die Dateien im Ordner
+
+../02_Word_Dokumente_KORRIGIERT/
+
+verwenden.
+
+Diese korrigierten Kopien wurden direkt in der DOCX-Struktur geprüft und enthalten
+deutsche Umlaute wie ä, ö, ü und ß statt beschädigter Zeichen wie ?.
+
+Der ursprüngliche Ordner bleibt nur erhalten, falls gerade noch eine Datei in Word
+geöffnet ist und Windows sie deshalb nicht überschreiben lässt.

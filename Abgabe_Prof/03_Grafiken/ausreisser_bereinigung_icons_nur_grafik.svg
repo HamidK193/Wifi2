@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380">
+  <defs>
+    <style>
+      .code { font-family: Consolas, monospace; font-size: 16px; fill: #1f2937; }
+      .ruleBox { fill: #f8fafc; stroke: #e5e7eb; stroke-width: 2; rx: 10; }
+      .arrow { stroke: #64748b; stroke-width: 4; fill: none; stroke-linecap: round; }
+      .routeRaw { stroke: #f97316; stroke-width: 6; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 11 9; }
+      .routeClean { stroke: #2563eb; stroke-width: 7; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .routeOut { stroke: #dc2626; stroke-width: 6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .road { stroke: #d1d5db; stroke-width: 16; fill: none; stroke-linecap: round; }
+      .tick { stroke: #16a34a; stroke-width: 6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .cross { stroke: #dc2626; stroke-width: 6; fill: none; stroke-linecap: round; }
+    </style>
+    <marker id="arrowHead" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <!-- Ausreisser-Laufweg -->
+  <path d="M65 315 C120 245, 182 195, 252 150 C282 130, 312 112, 348 92" class="road"/>
+  <path d="M65 315 C120 245, 182 195, 252 150 L302 42 L348 92" class="routeRaw"/>
+  <circle cx="65" cy="315" r="12" fill="#f97316" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="150" cy="222" r="12" fill="#f97316" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="252" cy="150" r="12" fill="#f97316" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="302" cy="42" r="15" fill="#dc2626" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="348" cy="92" r="12" fill="#f97316" stroke="#ffffff" stroke-width="4"/>
+  <path d="M289 29 L315 55 M315 29 L289 55" class="cross"/>
+
+  <path d="M415 190 L485 190" class="arrow" marker-end="url(#arrowHead)"/>
+
+  <!-- Qualitaetsregeln -->
+  <rect x="535" y="70" width="330" height="48" class="ruleBox"/>
+  <text x="560" y="100" class="code">mind. 3 passende APs</text>
+  <path d="M820 84 L835 100 L860 72" class="tick"/>
+
+  <rect x="535" y="132" width="330" height="48" class="ruleBox"/>
+  <text x="560" y="162" class="code">RMSE &lt;= 45 m</text>
+  <path d="M820 146 L835 162 L860 134" class="tick"/>
+
+  <rect x="535" y="194" width="330" height="48" class="ruleBox"/>
+  <text x="560" y="224" class="code">Sprung &lt;= 80 m</text>
+  <path d="M820 208 L835 224 L860 196" class="tick"/>
+
+  <rect x="535" y="256" width="330" height="48" class="ruleBox"/>
+  <text x="560" y="286" class="code">Router-RMSE &lt;= 15 m</text>
+  <path d="M820 270 L835 286 L860 258" class="tick"/>
+
+  <path d="M910 190 L970 190" class="arrow" marker-end="url(#arrowHead)"/>
+
+  <!-- Bereinigte Route -->
+  <path d="M1000 315 C1045 262, 1090 222, 1140 188 C1168 168, 1192 150, 1178 118" class="road"/>
+  <path d="M1000 315 C1045 262, 1090 222, 1140 188 C1168 168, 1192 150, 1178 118" class="routeClean"/>
+  <circle cx="1000" cy="315" r="12" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="1065" cy="245" r="12" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="1140" cy="188" r="12" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="1178" cy="118" r="12" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <path d="M1140 188 L1170 78" class="routeOut"/>
+  <circle cx="1170" cy="78" r="15" fill="#dc2626" stroke="#ffffff" stroke-width="4"/>
+  <path d="M1157 65 L1183 91 M1183 65 L1157 91" class="cross"/>
+</svg>

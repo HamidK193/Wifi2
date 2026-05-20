@@ -1,0 +1,4 @@
+﻿Im Repository wurde keine fertige PowerPoint-Datei (.pptx/.ppt) gefunden.
+Alle vorbereiteten Foliengrafiken liegen im Ordner 03_Grafiken.
+Die erklärenden Word-Dokumente und Sprechtexte liegen im Ordner 02_Word_Dokumente.
+Diese Dateien können direkt für die finale PowerPoint-Präsentation verwendet werden.

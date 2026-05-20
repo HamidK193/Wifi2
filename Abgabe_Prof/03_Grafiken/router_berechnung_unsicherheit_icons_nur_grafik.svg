@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420">
+  <defs>
+    <style>
+      .code { font-family: Consolas, monospace; font-size: 16px; fill: #1f2937; }
+      .arrow { stroke: #64748b; stroke-width: 4; fill: none; stroke-linecap: round; }
+      .circleA { fill: #f97316; fill-opacity: 0.12; stroke: #f97316; stroke-width: 4; stroke-dasharray: 10 8; }
+      .circleB { fill: #2563eb; fill-opacity: 0.10; stroke: #2563eb; stroke-width: 4; stroke-dasharray: 10 8; }
+      .circleC { fill: #16a34a; fill-opacity: 0.10; stroke: #16a34a; stroke-width: 4; stroke-dasharray: 10 8; }
+      .measure { fill: #111827; stroke: #ffffff; stroke-width: 4; }
+      .router { fill: #dc2626; stroke: #ffffff; stroke-width: 5; }
+      .uncertain { fill: #dc2626; fill-opacity: 0.12; stroke: #dc2626; stroke-width: 3; stroke-dasharray: 8 8; }
+      .residual { stroke: #64748b; stroke-width: 4; fill: none; stroke-linecap: round; stroke-dasharray: 8 8; }
+      .cross { stroke: #dc2626; stroke-width: 6; fill: none; stroke-linecap: round; }
+      .tick { stroke: #16a34a; stroke-width: 6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .ruleBox { fill: #f8fafc; stroke: #e5e7eb; stroke-width: 2; rx: 10; }
+    </style>
+    <marker id="arrowHead" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <!-- Weniger als 3 Scans: unsicher -->
+  <circle cx="145" cy="240" r="105" class="circleA"/>
+  <circle cx="270" cy="155" r="92" class="circleB"/>
+  <circle cx="145" cy="240" r="13" class="measure"/>
+  <circle cx="270" cy="155" r="13" class="measure"/>
+  <path d="M190 72 L222 104 M222 72 L190 104" class="cross"/>
+  <rect x="75" y="338" width="255" height="46" class="ruleBox"/>
+  <text x="102" y="367" class="code">&lt; 3 Scans = unsicher</text>
+
+  <path d="M365 210 L435 210" class="arrow" marker-end="url(#arrowHead)"/>
+
+  <!-- Mindestens 3 RSSI-Kreise -->
+  <circle cx="545" cy="245" r="105" class="circleA"/>
+  <circle cx="660" cy="160" r="92" class="circleB"/>
+  <circle cx="720" cy="280" r="82" class="circleC"/>
+  <circle cx="545" cy="245" r="13" class="measure"/>
+  <circle cx="660" cy="160" r="13" class="measure"/>
+  <circle cx="720" cy="280" r="13" class="measure"/>
+  <rect x="525" y="338" width="255" height="46" class="ruleBox"/>
+  <text x="552" y="367" class="code">&gt;= 3 RSSI-Kreise</text>
+  <path d="M742 352 L758 368 L782 340" class="tick"/>
+
+  <path d="M815 210 L885 210" class="arrow" marker-end="url(#arrowHead)"/>
+
+  <!-- Bester Punkt mit Restfehler -->
+  <circle cx="980" cy="245" r="105" class="circleA"/>
+  <circle cx="1085" cy="165" r="92" class="circleB"/>
+  <circle cx="1125" cy="292" r="82" class="circleC"/>
+  <ellipse cx="1058" cy="230" rx="75" ry="48" class="uncertain"/>
+  <circle cx="980" cy="245" r="13" class="measure"/>
+  <circle cx="1085" cy="165" r="13" class="measure"/>
+  <circle cx="1125" cy="292" r="13" class="measure"/>
+  <circle cx="1058" cy="230" r="16" class="router"/>
+  <path d="M1058 230 L1026 205" class="residual"/>
+  <path d="M1058 230 L1090 255" class="residual"/>
+  <rect x="945" y="338" width="255" height="46" class="ruleBox"/>
+  <text x="990" y="367" class="code">kleinstes RMSE</text>
+</svg>

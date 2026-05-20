@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="690" viewBox="130 220 870 500">
+  <defs>
+    <style>
+      .small { font-family: Aptos, Arial, sans-serif; font-size: 16px; fill: #4b5563; }
+      .label { font-family: Aptos, Arial, sans-serif; font-size: 23px; font-weight: 800; fill: #111827; }
+      .text { font-family: Aptos, Arial, sans-serif; font-size: 18px; fill: #374151; }
+      .card { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 16; }
+      .road { stroke: #9ca3af; stroke-width: 16; stroke-linecap: round; fill: none; }
+      .path { stroke: #d1d5db; stroke-width: 10; stroke-linecap: round; fill: none; }
+      .gpsRoute { stroke: #dc2626; stroke-width: 7; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .wifiRoute { stroke: #2563eb; stroke-width: 7; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .gpsGuide { stroke: #fecaca; stroke-width: 15; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .wifiGuide { stroke: #bfdbfe; stroke-width: 15; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .arrowGps { stroke: #dc2626; stroke-width: 4; fill: none; stroke-linecap: round; }
+      .arrowWifi { stroke: #2563eb; stroke-width: 4; fill: none; stroke-linecap: round; }
+      .orderLine { stroke: #64748b; stroke-width: 4; fill: none; stroke-linecap: round; }
+    </style>
+    <marker id="arrowGpsHead" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#dc2626"/>
+    </marker>
+    <marker id="arrowWifiHead" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowOrderHead" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect x="130" y="220" width="870" height="500" fill="#f9fafb" stroke="#e5e7eb" stroke-width="2" rx="18"/>
+  <path d="M165 615 C265 560, 355 500, 465 450 C595 390, 710 335, 930 255" class="road"/>
+  <path d="M165 615 C265 560, 355 500, 465 450 C595 390, 710 335, 930 255" class="path"/>
+  <path d="M240 300 C365 350, 500 370, 645 365 C770 360, 870 410, 955 505" class="road" opacity="0.45"/>
+  <path d="M240 300 C365 350, 500 370, 645 365 C770 360, 870 410, 955 505" class="path" opacity="0.7"/>
+  <path d="M375 675 C455 585, 535 520, 640 462 C735 410, 815 360, 900 300" class="road" opacity="0.35"/>
+  <path d="M375 675 C455 585, 535 520, 640 462 C735 410, 815 360, 900 300" class="path" opacity="0.62"/>
+
+  <path d="M205 592 C310 535, 390 488, 510 438 C630 387, 748 330, 900 276" class="wifiGuide"/>
+  <path d="M205 592 C310 535, 390 488, 510 438 C630 387, 748 330, 900 276" class="wifiRoute"/>
+  <circle cx="205" cy="592" r="12" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="325" cy="528" r="12" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="510" cy="438" r="12" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="695" cy="357" r="12" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="900" cy="276" r="12" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <path d="M360 508 L405 486" class="arrowWifi" marker-end="url(#arrowWifiHead)"/>
+  <path d="M575 410 L625 388" class="arrowWifi" marker-end="url(#arrowWifiHead)"/>
+  <path d="M770 328 L820 309" class="arrowWifi" marker-end="url(#arrowWifiHead)"/>
+
+  <path d="M260 318 C372 350, 485 369, 630 365 C750 362, 850 410, 930 492" class="gpsGuide"/>
+  <path d="M260 318 C372 350, 485 369, 630 365 C750 362, 850 410, 930 492" class="gpsRoute"/>
+  <circle cx="260" cy="318" r="12" fill="#dc2626" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="390" cy="353" r="12" fill="#dc2626" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="560" cy="367" r="12" fill="#dc2626" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="760" cy="366" r="12" fill="#dc2626" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="930" cy="492" r="12" fill="#dc2626" stroke="#ffffff" stroke-width="4"/>
+  <path d="M330 338 L382 351" class="arrowGps" marker-end="url(#arrowGpsHead)"/>
+  <path d="M640 365 L700 364" class="arrowGps" marker-end="url(#arrowGpsHead)"/>
+  <path d="M820 397 L858 423" class="arrowGps" marker-end="url(#arrowGpsHead)"/>
+
+  <rect x="168" y="647" width="210" height="48" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" rx="12"/>
+  <text x="190" y="678" class="small">Start</text>
+  <path d="M260 670 L330 670" class="orderLine" marker-end="url(#arrowOrderHead)"/>
+  <rect x="810" y="230" width="145" height="48" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" rx="12"/>
+  <text x="832" y="261" class="small">Richtung</text>
+
+  <rect x="155" y="246" width="265" height="104" class="card"/>
+  <circle cx="182" cy="280" r="10" fill="#2563eb" stroke="#ffffff" stroke-width="3"/>
+  <text x="205" y="287" class="small">WLAN-Laufweg</text>
+  <circle cx="182" cy="318" r="10" fill="#dc2626" stroke="#ffffff" stroke-width="3"/>
+  <text x="205" y="325" class="small">GPS-Laufweg</text>
+
+  <rect x="678" y="605" width="275" height="88" class="card"/>
+  <text x="702" y="637" class="label">Verbindung</text>
+  <text x="702" y="665" class="text">Nachbarpunkte werden</text>
+  <text x="702" y="690" class="text">zu einer Route verbunden.</text>
+</svg>
