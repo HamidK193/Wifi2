@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="750" viewBox="75 160 1000 625">
+  <defs>
+    <style>
+      .title { font-family: Aptos, Arial, sans-serif; font-size: 42px; font-weight: 800; fill: #111827; }
+      .subtitle { font-family: Aptos, Arial, sans-serif; font-size: 25px; fill: #374151; }
+      .label { font-family: Aptos, Arial, sans-serif; font-size: 23px; fill: #111827; font-weight: 700; }
+      .small { font-family: Aptos, Arial, sans-serif; font-size: 19px; fill: #374151; }
+      .tiny { font-family: Aptos, Arial, sans-serif; font-size: 16px; fill: #4b5563; }
+      .noteText { font-family: Aptos, Arial, sans-serif; font-size: 17px; fill: #374151; }
+      .noteHead { font-family: Aptos, Arial, sans-serif; font-size: 19px; fill: #111827; font-weight: 700; }
+      .panel { fill: #ffffff; stroke: #d1d5db; stroke-width: 2; rx: 18; }
+      .note { fill: #f9fafb; stroke: #d1d5db; stroke-width: 2; rx: 14; }
+      .road { stroke: #d1d5db; stroke-width: 12; stroke-linecap: round; fill: none; }
+      .road2 { stroke: #e5e7eb; stroke-width: 8; stroke-linecap: round; fill: none; }
+      .arrow { stroke-linecap: round; fill: none; }
+      .callout { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1.5; rx: 10; opacity: 0.97; }
+    </style>
+    <marker id="arrowStrong" markerWidth="18" markerHeight="18" refX="15" refY="9" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L16,9 L2,16 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowMedium" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrowWeak" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L12,7 L2,12 Z" fill="#93c5fd"/>
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000000" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1600" height="900" fill="#f8fafc"/>
+
+  <text x="80" y="78" class="title">WKNN: Standort aus ähnlichen WLAN-Mustern</text>
+  <text x="82" y="120" class="subtitle">Die ähnlichsten alten Scanpunkte wirken wie Magneten und ziehen die neue Schätzung unterschiedlich stark.</text>
+
+  <rect x="75" y="160" width="1000" height="625" class="panel" filter="url(#shadow)"/>
+  <rect x="1115" y="160" width="405" height="625" class="panel" filter="url(#shadow)"/>
+
+  <!-- Abstrakter Kartenausschnitt -->
+  <path d="M140 620 C275 525, 355 435, 480 365 C620 286, 740 258, 1030 215" class="road"/>
+  <path d="M158 638 C292 542, 370 452, 495 382 C632 305, 750 278, 1040 237" class="road2"/>
+  <path d="M155 275 C310 330, 445 345, 600 330 C760 315, 880 370, 1018 460" class="road"/>
+  <path d="M173 294 C322 347, 450 362, 598 348 C750 336, 868 388, 1000 478" class="road2"/>
+  <path d="M350 710 C395 560, 440 445, 520 335 C600 225, 690 190, 820 165" class="road"/>
+  <path d="M368 716 C414 568, 457 455, 535 350 C612 245, 700 210, 828 185" class="road2"/>
+  <path d="M820 720 C780 625, 735 540, 705 455 C670 355, 708 260, 760 175" class="road"/>
+  <path d="M838 713 C800 620, 754 535, 724 452 C692 365, 725 275, 775 190" class="road2"/>
+
+  <!-- Neuer geschätzter Standort -->
+  <circle cx="650" cy="450" r="36" fill="#f97316" stroke="#ffffff" stroke-width="8" filter="url(#shadow)"/>
+  <circle cx="650" cy="450" r="11" fill="#ffffff"/>
+
+  <!-- Magnet-Ziehungen -->
+  <line x1="365" y1="330" x2="610" y2="432" stroke="#2563eb" stroke-width="9" opacity="0.86" marker-end="url(#arrowStrong)" class="arrow"/>
+  <line x1="840" y1="330" x2="690" y2="426" stroke="#3b82f6" stroke-width="7" opacity="0.78" marker-end="url(#arrowMedium)" class="arrow"/>
+  <line x1="505" y1="635" x2="630" y2="490" stroke="#60a5fa" stroke-width="5.5" opacity="0.68" marker-end="url(#arrowMedium)" class="arrow"/>
+  <line x1="910" y1="585" x2="700" y2="474" stroke="#93c5fd" stroke-width="4" opacity="0.56" marker-end="url(#arrowWeak)" class="arrow"/>
+  <line x1="245" y1="535" x2="605" y2="462" stroke="#bfdbfe" stroke-width="3" opacity="0.55" marker-end="url(#arrowWeak)" class="arrow"/>
+
+  <!-- Alte Scanpunkte und lesbare Labels -->
+  <circle cx="365" cy="330" r="25" fill="#2563eb" stroke="#ffffff" stroke-width="5"/>
+  <rect x="210" y="238" width="225" height="92" class="callout"/>
+  <text x="228" y="274" class="label">Alter Scan A</text>
+  <text x="228" y="300" class="small">sehr ähnlich</text>
+  <text x="228" y="321" class="tiny">starker Magnet</text>
+
+  <circle cx="840" cy="330" r="22" fill="#3b82f6" stroke="#ffffff" stroke-width="5"/>
+  <rect x="860" y="264" width="190" height="84" class="callout"/>
+  <text x="878" y="300" class="label">Alter Scan B</text>
+  <text x="878" y="326" class="small">ähnlich</text>
+
+  <circle cx="505" cy="635" r="20" fill="#60a5fa" stroke="#ffffff" stroke-width="5"/>
+  <rect x="390" y="660" width="190" height="78" class="callout"/>
+  <text x="408" y="694" class="label">Alter Scan C</text>
+  <text x="408" y="720" class="small">ähnlich</text>
+
+  <circle cx="910" cy="585" r="17" fill="#93c5fd" stroke="#ffffff" stroke-width="5"/>
+  <rect x="930" y="554" width="138" height="92" class="callout"/>
+  <text x="948" y="590" class="label">Scan D</text>
+  <text x="948" y="616" class="small">weniger</text>
+  <text x="948" y="638" class="small">ähnlich</text>
+
+  <circle cx="245" cy="535" r="15" fill="#bfdbfe" stroke="#ffffff" stroke-width="5"/>
+  <rect x="130" y="462" width="190" height="86" class="callout"/>
+  <text x="148" y="498" class="label">Alter Scan E</text>
+  <text x="148" y="524" class="small">schwach ähnlich</text>
+
+  <rect x="535" y="496" width="265" height="92" class="callout"/>
+  <text x="562" y="532" class="label">geschätzter</text>
+  <text x="562" y="560" class="label">WKNN-Standort</text>
+
+  <!-- Rechte Erklärung -->
+  <text x="1150" y="218" class="label">So schätzt WKNN:</text>
+
+  <circle cx="1160" cy="265" r="10" fill="#2563eb"/>
+  <text x="1185" y="272" class="small">WLAN-Muster vergleichen</text>
+  <text x="1185" y="298" class="tiny">SSID+BSSID mit RSSI</text>
+
+  <circle cx="1160" cy="345" r="10" fill="#3b82f6"/>
+  <text x="1185" y="352" class="small">5 ähnlichste Scans finden</text>
+  <text x="1185" y="378" class="tiny">k = 5 im Code</text>
+
+  <circle cx="1160" cy="425" r="10" fill="#60a5fa"/>
+  <text x="1185" y="432" class="small">Magnet-Gewichte setzen</text>
+  <text x="1185" y="458" class="tiny">ähnlicher Scan = stärkerer Magnet</text>
+
+  <circle cx="1160" cy="505" r="10" fill="#f97316"/>
+  <text x="1185" y="512" class="small">Gewichteten Mittelpunkt bilden</text>
+  <text x="1185" y="538" class="tiny">nicht exakt einen Scan übernehmen</text>
+
+  <rect x="1150" y="585" width="325" height="160" class="note"/>
+  <text x="1170" y="620" class="noteHead">Magnet-Idee</text>
+  <text x="1170" y="654" class="noteText">Je ähnlicher Netzwerke und</text>
+  <text x="1170" y="681" class="noteText">RSSI-Lautstärken zu einem</text>
+  <text x="1170" y="708" class="noteText">alten Scan passen, desto</text>
+  <text x="1170" y="735" class="noteText">stärker zieht dieser Scan.</text>
+
+  <text x="82" y="835" class="small">Merksatz: KNN nimmt den nächsten Punkt. WKNN berechnet einen gewichteten Standort aus mehreren ähnlichen Punkten.</text>
+</svg>

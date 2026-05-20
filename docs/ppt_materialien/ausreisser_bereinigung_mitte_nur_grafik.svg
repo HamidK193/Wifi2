@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="470" viewBox="90 200 1350 475">
+  <defs>
+    <style>
+      .boxTitle { font-family: Aptos, Arial, sans-serif; font-size: 25px; font-weight: 800; fill: #111827; }
+      .boxText { font-family: Aptos, Arial, sans-serif; font-size: 18px; fill: #374151; }
+      .small { font-family: Aptos, Arial, sans-serif; font-size: 16px; fill: #4b5563; }
+      .code { font-family: Consolas, monospace; font-size: 16px; fill: #1f2937; }
+      .stage { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 16; }
+      .warnStage { fill: #fff7ed; stroke: #fdba74; stroke-width: 2; rx: 16; }
+      .goodStage { fill: #eff6ff; stroke: #93c5fd; stroke-width: 2; rx: 16; }
+      .arrow { stroke: #64748b; stroke-width: 4; fill: none; stroke-linecap: round; }
+      .routeRaw { stroke: #f97316; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 10 8; }
+      .routeClean { stroke: #2563eb; stroke-width: 6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .routeOut { stroke: #dc2626; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .road { stroke: #d1d5db; stroke-width: 12; fill: none; stroke-linecap: round; }
+      .tick { stroke: #16a34a; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .cross { stroke: #dc2626; stroke-width: 5; fill: none; stroke-linecap: round; }
+    </style>
+    <marker id="arrowHead" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L14,8 L2,14 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect x="110" y="215" width="330" height="445" class="warnStage"/>
+  <text x="145" y="275" class="boxTitle">1. Problem</text>
+  <text x="145" y="312" class="boxText">Einzelne WLAN-Schaetzungen</text>
+  <text x="145" y="338" class="boxText">springen unplausibel weg.</text>
+  <path d="M155 548 C205 486, 258 438, 322 398 C350 380, 378 365, 410 348" class="road"/>
+  <path d="M155 548 C205 486, 258 438, 322 398 L365 292 L410 348" class="routeRaw"/>
+  <circle cx="155" cy="548" r="10" fill="#f97316" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="232" cy="456" r="10" fill="#f97316" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="322" cy="398" r="10" fill="#f97316" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="365" cy="292" r="13" fill="#dc2626" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="410" cy="348" r="10" fill="#f97316" stroke="#ffffff" stroke-width="4"/>
+  <path d="M353 280 L377 304 M377 280 L353 304" class="cross"/>
+  <text x="145" y="598" class="small">Typische Ursache:</text>
+  <text x="145" y="623" class="small">schwaches Signal oder</text>
+  <text x="145" y="648" class="small">zu wenige passende APs.</text>
+
+  <path d="M460 435 L520 435" class="arrow" marker-end="url(#arrowHead)"/>
+
+  <rect x="535" y="215" width="420" height="445" class="stage"/>
+  <text x="565" y="275" class="boxTitle">2. Qualitaetspruefung</text>
+  <text x="565" y="312" class="boxText">Jeder Punkt wird automatisch</text>
+  <text x="565" y="338" class="boxText">gegen Regeln getestet.</text>
+  <rect x="575" y="376" width="335" height="46" fill="#f8fafc" stroke="#e5e7eb" stroke-width="2" rx="10"/>
+  <text x="600" y="405" class="code">mind. 3 passende APs</text>
+  <path d="M866 391 L878 403 L900 379" class="tick"/>
+  <rect x="575" y="434" width="335" height="46" fill="#f8fafc" stroke="#e5e7eb" stroke-width="2" rx="10"/>
+  <text x="600" y="463" class="code">RMSE &lt;= 45 m</text>
+  <path d="M866 449 L878 461 L900 437" class="tick"/>
+  <rect x="575" y="492" width="335" height="46" fill="#f8fafc" stroke="#e5e7eb" stroke-width="2" rx="10"/>
+  <text x="600" y="521" class="code">Sprung &lt;= 80 m</text>
+  <path d="M866 507 L878 519 L900 495" class="tick"/>
+  <rect x="575" y="550" width="335" height="46" fill="#f8fafc" stroke="#e5e7eb" stroke-width="2" rx="10"/>
+  <text x="600" y="579" class="code">Router-RMSE &lt;= 15 m</text>
+  <path d="M866 565 L878 577 L900 553" class="tick"/>
+  <text x="565" y="625" class="small">Jeder auffaellige Punkt bekommt</text>
+  <text x="565" y="650" class="small">eine eigene Begruendung.</text>
+
+  <path d="M975 435 L1035 435" class="arrow" marker-end="url(#arrowHead)"/>
+
+  <rect x="1050" y="215" width="365" height="445" class="goodStage"/>
+  <text x="1080" y="275" class="boxTitle">3. Bereinigte Route</text>
+  <text x="1080" y="312" class="boxText">Plausible Punkte bleiben in</text>
+  <text x="1080" y="338" class="boxText">der Standardansicht.</text>
+  <path d="M1095 538 C1150 486, 1208 438, 1270 400 C1318 370, 1355 344, 1383 325" class="road"/>
+  <path d="M1095 538 C1150 486, 1208 438, 1270 400 C1318 370, 1355 344, 1383 325" class="routeClean"/>
+  <circle cx="1095" cy="538" r="10" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="1170" cy="467" r="10" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="1270" cy="400" r="10" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="1383" cy="325" r="10" fill="#2563eb" stroke="#ffffff" stroke-width="4"/>
+  <path d="M1268 400 L1318 294" class="routeOut" opacity="0.9"/>
+  <circle cx="1318" cy="294" r="12" fill="#dc2626" stroke="#ffffff" stroke-width="4"/>
+  <path d="M1306 282 L1330 306 M1330 282 L1306 306" class="cross"/>
+  <rect x="1088" y="568" width="295" height="44" fill="#ffffff" stroke="#bfdbfe" stroke-width="2" rx="10"/>
+  <text x="1110" y="596" class="code">..._matched_clean.csv</text>
+  <text x="1080" y="628" class="small">Ausreisser werden separat</text>
+  <text x="1080" y="653" class="small">dokumentiert.</text>
+</svg>

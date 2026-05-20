@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from pathlib import Path
 
 from src.load_wifi_csv import load_wifi_csv
@@ -18,11 +20,11 @@ CORE_PROCESSED_FILES = [
 ]
 
 
-def main() -> None:
+def main() -> int:
     if not RAW_CSV_PATH.exists():
         print(f"Keine CSV-Datei gefunden: {RAW_CSV_PATH}")
         print("Lege die Datei in data/raw/ ab und starte das Skript erneut.")
-        return
+        return 1
 
     osm_path = RAW_OSM_PATH if RAW_OSM_PATH.exists() else None
     if processed_baseline_exists():
@@ -52,10 +54,24 @@ def main() -> None:
 
     print("\nInteraktive Anwendung starten mit:")
     print("py -m streamlit run app.py")
+    return run_project_tests()
 
 
 def processed_baseline_exists() -> bool:
     return all((PROCESSED_DIR / file_name).exists() for file_name in CORE_PROCESSED_FILES)
+
+
+def run_project_tests() -> int:
+    sys.stdout.flush()
+    print("\nAutomatische Tests starten:")
+    print(f"{sys.executable} -m pytest")
+    sys.stdout.flush()
+    completed = subprocess.run([sys.executable, "-m", "pytest"], check=False)
+    if completed.returncode == 0:
+        print("\nTests erfolgreich abgeschlossen.")
+    else:
+        print(f"\nTests fehlgeschlagen mit Exitcode {completed.returncode}.")
+    return completed.returncode
 
 
 def update_fast_runtime_outputs(
@@ -95,4 +111,4 @@ def update_fast_runtime_outputs(
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
